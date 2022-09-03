@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# clang-format configuration file. Intended for clang-format >= 11.
+#
+# For more information, see:
+#
+#   Documentation/process/clang-format.rst
+#   https://clang.llvm.org/docs/ClangFormat.html
+#   https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+#
+---
+BasedOnStyle: LLVM
+ColumnLimit: 88
+IndentWidth: 4
+UseTab: Never
+---
+Language: Cpp
+Standard: c++20
+
+AccessModifierOffset: -4
+AlignAfterOpenBracket: BlockIndent
+# AlignOperands: DontAlign
+AlignTrailingComments: false
+
+AllowShortFunctionsOnASingleLine: None
+
+BinPackArguments: false
+BinPackParameters: false
+
+BreakBeforeBinaryOperators: NonAssignment
+# BreakBeforeTernaryOperators: false
+
+DeriveLineEnding: false
+UseCRLF: false
+
+IncludeBlocks: Regroup
+
+IndentCaseLabels: true
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 2
+
+# NamespaceIndentation: Inner
+
+# May need to adapt if return types never fold.
+PenaltyReturnTypeOnItsOwnLine: 1000
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+QualifierAlignment: Left
+
+ReflowComments: false
+
+RemoveBracesLLVM: false
+
+SpaceAfterCStyleCast: true
+SpaceBeforeCpp11BracedList: true
+SpacesBeforeTrailingComments: 2
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: -1
+...

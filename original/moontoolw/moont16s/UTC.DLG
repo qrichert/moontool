@@ -1,0 +1,30 @@
+//DLGINCLUDE RCDATA DISCARDABLE
+//BEGIN
+//    "UTC.H\0"
+//END
+
+6000 DIALOG 53, 30, 218, 160
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Set Universal Time"
+FONT 8, "Helv"
+BEGIN
+    LTEXT           "244466622.12345", IDC_U_JDATE, 55, 107, 117, 8
+    GROUPBOX        "Julian date", 6002, 44, 95, 134, 28
+    PUSHBUTTON      "OK", IDOK, 33, 140, 40, 14
+    PUSHBUTTON      "Cancel", IDCANCEL, 89, 140, 40, 14
+    PUSHBUTTON      "&Now", IDC_U_NOW, 145, 140, 40, 14
+    EDITTEXT        IDC_U_YEAR, 25, 31, 32, 12, ES_AUTOHSCROLL
+    EDITTEXT        IDC_U_DAY, 161, 31, 32, 12, ES_AUTOHSCROLL
+    EDITTEXT        IDC_U_HOUR, 51, 65, 32, 12, ES_AUTOHSCROLL
+    EDITTEXT        IDC_U_MINUTE, 89, 65, 32, 12, ES_AUTOHSCROLL
+    EDITTEXT        IDC_U_SECOND, 127, 65, 32, 12, ES_AUTOHSCROLL
+    COMBOBOX        IDC_U_MONTH, 71, 31, 77, 98, CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Hour", 6008, 59, 54, 17, 8
+    LTEXT           "Minute", 6009, 94, 54, 23, 8
+    LTEXT           "Second", 6010, 130, 54, 26, 8
+    LTEXT           "Year", 6011, 33, 21, 16, 8
+    LTEXT           "Month", 6012, 98, 21, 22, 8
+    LTEXT           "Day", 6013, 170, 21, 14, 8
+    GROUPBOX        "Universal time", 6014, 11, 10, 191, 76
+END

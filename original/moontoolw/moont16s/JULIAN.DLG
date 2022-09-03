@@ -1,0 +1,19 @@
+DLGINCLUDE RCDATA DISCARDABLE
+BEGIN
+    "JULIAN.H\0"
+END
+
+9000 DIALOG 82, 33, 160, 100
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Set Julian Date"
+FONT 8, "Helv"
+BEGIN
+    LTEXT           "Julian date:", 101, 15, 22, 40, 8
+    EDITTEXT        IDC_J_JDATE, 55, 20, 90, 12, ES_AUTOHSCROLL
+    LTEXT           "22:47:19 23 September 1992", IDC_J_UTIME, 22, 53, 117, 
+                    8
+    GROUPBOX        "Universal time", 9002, 11, 41, 134, 28
+    PUSHBUTTON      "OK", IDOK, 10, 80, 40, 14
+    PUSHBUTTON      "Cancel", IDCANCEL, 60, 80, 40, 14
+    PUSHBUTTON      "&Now", IDC_J_NOW, 110, 80, 40, 14
+END

@@ -1,0 +1,304 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "moontool.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Neutral resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
+#ifdef _WIN32
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+MOONTOOL_ICON           ICON    DISCARDABLE     "MOONTOOL.ICO"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+COLOURMOON              BITMAP  MOVEABLE PURE   "Colmoon.bmp"
+ICONMOON                BITMAP  MOVEABLE PURE   "moonicon.bmp"
+GREYMOON                BITMAP  DISCARDABLE     "Moon.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+MOONTOOL MENU DISCARDABLE 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "E&xit",                       IDM_F_EXIT
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Copy",                       IDM_F_COPY
+    END
+    POPUP "&Options"
+    BEGIN
+        MENUITEM "&Fast mode",                  IDM_F_TESTMODE
+        MENUITEM "&Stop",                       IDM_F_STOP
+        MENUITEM SEPARATOR
+        MENUITEM "Set &Julian date...",         IDM_F_SETJDATE
+        MENUITEM "Set &Universal time...",      IDM_F_SETUTIME
+    END
+    POPUP "\a&Help"
+    BEGIN
+        MENUITEM "&Contents\tF1",               IDM_HELP_CONTENTS
+        MENUITEM "&Search...",                  IDM_HELP_SEARCH
+        MENUITEM SEPARATOR
+        MENUITEM "&About...",                   IDM_F_ABOUT
+        MENUITEM SEPARATOR
+        MENUITEM "Time zones...",               IDM_F_TIMEZONE
+    END
+END
+
+IDR_POPUP MENU DISCARDABLE 
+BEGIN
+    POPUP "Popup"
+    BEGIN
+        MENUITEM "&Open",                       ID_POPUP_OPEN
+        MENUITEM "&Exit",                       ID_POPUP_EXIT
+    END
+END
+
+#endif    // Neutral resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Data
+//
+
+GEOMETRY RCDATA MOVEABLE PURE 
+BEGIN
+    0x0022, 0x0014, 0x001c, 0x000a, 0x0010
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUT DIALOG DISCARDABLE  147, 40, 174, 106
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "About Moontool"
+FONT 8, "Helv"
+BEGIN
+    PUSHBUTTON      "OK",IDOK,67,81,40,14
+    CTEXT           "Moontool for Windows",IDC_STATIC,49,28,76,8
+    CTEXT           "by John Walker",IDC_STATIC,46,53,83,8
+    CTEXT           "Version 2.0  --  March MIM",IDC_STATIC,33,37,109,8
+    ICON            MOONTOOL_ICON,116,79,6,20,20
+    CTEXT           "http://www.fourmilab.ch/",IDC_STATIC,46,63,83,8
+END
+
+IDD_SET_JULIAN DIALOG DISCARDABLE  82, 33, 160, 94
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Moontool: Set Julian Date"
+FONT 8, "Helv"
+BEGIN
+    EDITTEXT        IDC_J_JDATE,55,10,90,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "OK",IDOK,10,70,40,14
+    PUSHBUTTON      "Cancel",IDCANCEL,60,70,40,14
+    PUSHBUTTON      "&Now",IDC_J_NOW,110,70,40,14
+    LTEXT           "Julian date:",IDC_STATIC,15,12,40,8
+    LTEXT           "22:47:19 23 September 1992",IDC_J_UTIME,22,42,117,8
+    GROUPBOX        "Universal time",IDC_STATIC,11,30,134,28
+END
+
+IDD_SET_UTC DIALOG DISCARDABLE  53, 30, 218, 157
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Moontool: Set Universal Time"
+FONT 8, "Helv"
+BEGIN
+    EDITTEXT        IDC_U_YEAR,25,31,32,12,ES_AUTOHSCROLL
+    COMBOBOX        IDC_U_MONTH,71,31,77,98,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    EDITTEXT        IDC_U_DAY,161,31,32,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_U_HOUR,51,65,32,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_U_MINUTE,89,65,32,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_U_SECOND,127,65,32,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "OK",IDOK,33,135,40,14
+    PUSHBUTTON      "Cancel",IDCANCEL,89,135,40,14
+    PUSHBUTTON      "&Now",IDC_U_NOW,145,135,40,14
+    LTEXT           "244466622.12345",IDC_U_JDATE,55,107,117,8
+    GROUPBOX        "Julian date",IDC_STATIC,44,95,134,28
+    LTEXT           "Hour",IDC_STATIC,59,54,17,8
+    LTEXT           "Minute",IDC_STATIC,94,54,23,8
+    LTEXT           "Second",IDC_STATIC,130,54,26,8
+    LTEXT           "Year",IDC_STATIC,33,21,16,8
+    LTEXT           "Month",IDC_STATIC,98,21,22,8
+    LTEXT           "Day",IDC_STATIC,170,21,14,8
+    GROUPBOX        "Universal time",IDC_STATIC,11,10,191,76
+END
+
+IDD_TIMEZONE DIALOG DISCARDABLE  59, 17, 246, 137
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Moontool: About Time Zones"
+FONT 8, "Helv"
+BEGIN
+    PUSHBUTTON      "OK",IDOK,103,113,40,14
+    LTEXT           "In order to calculate the appearance of the Moon at a given time, Moontool needs to know in which time zone your computer is located or, in other words, the relationship between local and Universal (Greenwich Mean) Time.",
+                    IDC_STATIC,13,6,221,36
+    LTEXT           "When you installed Windows on your computer, you should have been asked to specify the time zone.  Since relatively few Windows applications use the time zone information, it may not be obvious if it is mis-set.",
+                    IDC_STATIC,13,44,221,28
+    LTEXT           "If Moontool displays an incorrect Universal Time, you'll need to use the ""Date/Time"" icon in the Control Panel to set the correct the time zone for your location.",
+                    IDC_STATIC,13,77,221,28
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""moontool.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_ERR_REGISTER_CLASS  "Error registering window class"
+    IDS_ERR_CREATE_WINDOW   "Window creation failed!"
+    IDS_ERR_TRUEPHASE       "TRUEPHASE called with invalid phase selector."
+    IDS_ERR_IERR            "Moontool: Internal Error"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_ITEM_LABELS         "Julian date:"
+    17                      "Universal time:"
+    IDS_ITEM_LABELS_N       "Local time:"
+    20                      "Age of moon:"
+    21                      "Moon phase:"
+    22                      "Moon's distance:"
+    23                      "Moon subtends:"
+    25                      "Sun's distance:"
+    26                      "Sun subtends:"
+    28                      "Last new moon:"
+    29                      "First quarter:"
+    30                      "Full moon:"
+    31                      "Last quarter:"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    32                      "Next new moon:"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MONTH_NAMES         "January"
+    49                      "February"
+    50                      "March"
+    51                      "April"
+    52                      "May"
+    53                      "June"
+    54                      "July"
+    55                      "August"
+    56                      "September"
+    57                      "October"
+    58                      "November"
+    59                      "December"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_FORMATS             "Moon: %d %s %d %s"
+    65                      "Moon: %d %s %d %s"
+    66                      "%.5f"
+    67                      "%02d:%02d:%02d %2d %s %d"
+    68                      "%02d:%02d:%02d %2d %s %d"
+    69                      "%d %s, %d %s, %d %s."
+    70                      "%d%%   (0%% = New, 100%% = Full)"
+    71                      "%ld kilometres, %.1f Earth radii."
+    72                      "%.4f degrees."
+    73                      "%.0f kilometres, %.3f astronomical units."
+    74                      "%.4f degrees."
+    75                      "Lunation: %d"
+    76                      "%02d:%02d UTC %2d %s %d"
+    77                      "%02d:%02d:%02d %2d %s %d"
+    78                      "(invalid)"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_MINUTE              "minute"
+    IDS_MINUTES             "minutes"
+    IDS_HOUR                "hour"
+    IDS_HOURS               "hours"
+    IDS_DAY                 "day"
+    IDS_DAYS                "days"
+    IDS_APPNAME             "Moontool"
+    IDS_HELPFILE            "Moontool.hlp"
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

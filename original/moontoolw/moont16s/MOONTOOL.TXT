@@ -1,0 +1,169 @@
+                         Moontool for Windows
+
+Moontool   for   Windows  is  a  Microsoft  Windows  application  that
+calculates the phase of the Moon at either the current time or at  any
+user-specified  time and displays a picture of the Moon at the correct
+phase, either as an icon or in an open window.
+
+MOONTOOL DISPLAY
+================
+
+When  the  Moontool  window  is  open,   it   displays   comprehensive
+information about the Moon:
+
+  +----------------------------------------------------------------------+
+  | =                            Moontool                                |
+  +----------------------------------------------------------------------+
+  | File  Edit  Options                                             Help |
+  +----------------------------------------------------------------------+
+  | Julian date:        2448696.36623                   +-------+        |
+  | Universal time:     08:47:22 14 March 1992          | Moon  |        |
+  | Local time:         00:47:22 14 March 1992          | image |        |
+  |                                                     |       |        |
+  | Age of moon:        9 days, 19 hours, 44 minutes.   +-------+        |
+  | Moon phase:         74%  (0% = New, 100% = Full)                     |
+  | Moon's distance:    363702 kilometres, 57.0 Earth radii.             |
+  | Moon subtends:      0.5476 degrees.                                  |
+  |                                                                      |
+  | Sun's distance:     148764944 kilometres, 0.994 astronomical units.  |
+  | Sun subtends:       0.5361 degrees.                                  |
+  |                                                                      |
+  | Last new moon:      13:23 UTC  4 March 1992         Lunation: 856    |
+  | First quarter:      02:35 UTC 12 March 1992                          |
+  | Full moon:          18:17 UTC 18 March 1992                          |
+  | Last quarter:       02:31 UTC 26 March 1992                          |
+  | Next new moon:      05:03 UTC  3 April 1992         Lunation: 857    |
+  +----------------------------------------------------------------------+
+
+When closed to an icon, Moontool displays the image of the Moon at the
+current phase, subtitled with the age of the Moon in  days  and  hours
+(or  hours  and  minutes  when the Moon is less than one day old).  If
+Moontool is launched from the "load=" statement in WIN.INI, it  starts
+as  an  icon,  permitting  you  to  include  the  Moon  as a permanent
+embellishment of your Windows desktop.
+
+Moontool allows the information displayed in the  open  window  to  be
+copied  to  the clipboard as a bitmap, permitting you to paste it into
+another document.
+
+In addition to displaying the Moon at the current time,  Moontool  can
+calculate  the  appearance  of the Moon at any user-specified date and
+time.  Two dialogues  permit  entering  date  and  time  either  as  a
+conventional  Universal  time  (year,  month, day, hours, minutes, and
+seconds) or as a Julian date.  These dialogues  perform  instantaneous
+conversion  between  Universal time and Julian date, serving thus as a
+Julian date calculator, handy  by  itself  to  astronomers.   You  can
+animate  the display of the Moon by placing Moontool into "Fast mode",
+showing the progression of phases at the rate of  one  day  every  few
+seconds.
+
+Moontool's ability to display the Moon at any date in history lets you
+quickly answer questions such as that posed in the April 1992 issue of
+"Sky And Telescope" (page 437): did Paul Revere's midnight ride really
+occur under the full Moon, or did Longfellow add the Moon to his  poem
+purely  for  atmosphere?  Firing up Moontool and entering the time and
+date of Revere's ride: 05:00:00 UTC April 19th, 1775, we find that the
+Moon  was 87% full that night, waning from the last full Moon at 21:53
+UTC on April 15th, 1775.  Moontool tells us that the Moon  was  indeed
+close  to  full  that night, confirming Revere's own recollection that
+"the Moon shone bright".
+
+DETAILS
+=======
+
+Moontool runs under Microsoft Windows 3.0 (and above) in any mode.  It
+is written in Microsoft Quick C; source code is available.  This is  a
+16-bit  Windows  program; a 32-bit version optimised for Windows 95/98
+is also available from the Web site:
+
+        http://www.fourmilab.ch/moontoolw/
+
+All of these binary executable files have been created  starting  from
+source  code  using  only  officially-licensed  commercial software in
+order to eliminate the risk of contamination with computer viruses.
+
+The source code for Moontool is in the public domain.  You are free to
+use it in any manner you wish.
+
+TIME ZONE SPECIFICATION
+=======================
+
+In order to calculate information about the Moon, Moontool  must  know
+the  relationship  between the local time provided by the system clock
+on MS-DOS and Universal  Time  (or  Greenwich  Mean  Time).   This  is
+provided  by  the  "TZ"  environment  variable, normally set at system
+startup time in AUTOEXEC.BAT.  The time zone is specified as:
+
+        SET TZ=tzn[+|-]hh[:mm[:ss]][dzn]
+
+where:
+        tzn     Three character abbreviation for the time zone name.
+        hh      The difference in hours between GMT and the local
+                time.  A leading '+' or '-' sign is optional.
+        mm      Optional minutes difference.
+        ss      Optional seconds difference.
+        dzn     Optional three character abbreviation for the
+                time zone name during daylight savings time (if
+                used in this locality).
+
+TZ  specifications  for  time zones in the 48 contiguous United States
+are:
+
+        Zone            SET TZ=
+      --------         ---------
+      Eastern           EST5EDT
+      Central           CST6CDT
+      Mountain          MST7MDT
+      Pacific           PST8PDT
+
+If no TZ specification is present, Moontool  issues  a  warning  alert
+when launched and uses the system default of the US Pacific time zone.
+
+MOONTOOL HISTORY
+================
+
+Moontool was originally written for  the  Sun  Workstation  under  the
+SunView  graphical  user interface by John Walker in December of 1987.
+The program was posted to the Usenet news group  comp.sources.unix  in
+June  1988 and was subsequently widely distributed within the Sun user
+community.  As the original posting began, "What good's a Sun  without
+a Moon?".
+
+In  1988  and 1989 Ron Hitchens contributed additional features to the
+Sun version of the program, including the  shaded  Moon  images  which
+were drawn by Joe Hitchens on an Amiga computer.
+
+In  December  of 1991 I implemented Moontool under the X Window system
+using the OpenLook toolkit.  That version formed  the  starting  point
+for  this  Microsoft  Windows Moontool which was completed in March of
+1992.
+
+ASTRONOMICAL PROGRAMMING RESOURCES
+==================================
+
+The algorithms used in this program to calculate the positions of  the
+Sun  and  Moon as seen from the Earth are given in the book "Practical
+Astronomy  With  Your  Calculator"  by  Peter  Duffett-Smith,   Second
+Edition,   Cambridge   University   Press,   1981.   Ignore  the  word
+"Calculator" in the title; this is an essential  reference  if  you're
+interested   in   developing   software   which  calculates  planetary
+positions, orbits, eclipses, and the like.  If  you're  interested  in
+pursuing such programming, you should also obtain:
+
+"Astronomical  Formulae for Calculators" by Jean Meeus, Third Edition,
+Willmann-Bell, 1985.  A must-have.
+
+"Planetary  Programs  and  Tables  from  -4000  to  +2800"  by  Pierre
+Bretagnon  and Jean-Louis Simon, Willmann-Bell, 1986.  If you want the
+utmost (outside of JPL) accuracy for the planets, it's here.
+
+"Celestial BASIC" by Eric Burgess, Revised Edition, Sybex, 1985.  Very
+cookbook  oriented,  and many of the algorithms are hard to dig out of
+the turgid BASIC code, but you'll probably want it anyway.
+
+Many of these references can be obtained from Willmann-Bell,  P.O. Box
+35025,  Richmond,  VA 23235, USA.  Phone: (804) 320-7016.  In addition
+to their own publications, they stock most of the standard  references
+for mathematical and positional astronomy.
+
+                This program is in the public domain.

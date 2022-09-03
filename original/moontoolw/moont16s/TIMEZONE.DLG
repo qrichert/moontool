@@ -1,0 +1,25 @@
+
+5000 DIALOG 59, 17, 246, 186
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "About Time Zones"
+FONT 8, "Helv"
+BEGIN
+    PUSHBUTTON      "OK", IDOK, 103, 167, 40, 14
+    LTEXT           "The time and date on MS-DOS systems are specified in terms of local time.  In order to calculate the appearance of the Moon at a given time, Moontool needs to know what time zone this time represents or, in other words, the relationship between local ", 
+                    5001, 15, 6, 221, 36
+    LTEXT           "time and Universal (or Greenwich Mean) time (UTC or GMT).  The time zone is specified by the TZ environment variable, usually set in AUTOEXEC.BAT at system startup time.  The TZ variable is set with a statement of the form:", 
+                    5002, 15, 38, 217, 36
+    LTEXT           "SET TZ=tzn[+|-]hh[:mm[:ss]][dzn]", 5003, 43, 77, 109, 8
+    LTEXT           "where:", 5004, 15, 91, 23, 8
+    LTEXT           "tzn", 5005, 14, 102, 11, 8
+    LTEXT           "Time zone name (EST, CST, PST,...)", 5006, 76, 102, 126, 
+                    8
+    LTEXT           "[+|-]hh[:mm[:ss]]", 5007, 14, 110, 53, 8
+    LTEXT           "Difference between local time and Universal Time", 5008, 
+                    76, 110, 170, 8
+    LTEXT           "dzn", 5009, 14, 118, 13, 8
+    LTEXT           "Daylight savings time zone name, if applicable", 5010, 
+                    76, 118, 158, 8
+    LTEXT           "For example, in the United States, the Eastern time zone is defined as EST5EDT, the Central time zone as CST6CDT, the Mountain zone as MST7MDT, and the Pacific zone as PST8PDT.", 
+                    5011, 15, 131, 223, 28
+END

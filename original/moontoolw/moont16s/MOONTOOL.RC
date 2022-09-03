@@ -1,0 +1,141 @@
+/*
+        Moontool resouce definition
+
+          English Language Edition
+
+*/
+
+#include "moontool.h"
+
+MOONTOOL ICON MOONTOOL.ICO          /* Moon icon */
+
+/* Menu definition.  Note that in the "Options" menu the  "Fast  mode"
+   item  will  be  checked when that mode is in effect, and the "Stop"
+   item will be replaced with "Run" whilst stopped.  */
+
+MOONTOOL MENU
+  BEGIN
+    POPUP  "&File"
+      BEGIN
+        MENUITEM "E&xit", IDM_F_EXIT
+      END
+    POPUP "&Edit"
+      BEGIN
+        MENUITEM "&Copy", IDM_F_COPY
+      END
+    POPUP "&Options"
+      BEGIN
+        MENUITEM "&Fast mode", IDM_F_TESTMODE
+        MENUITEM "&Stop", IDM_F_STOP
+        MENUITEM SEPARATOR
+        MENUITEM "Set &Julian date...", IDM_F_SETJDATE
+        MENUITEM "Set &Universal time...", IDM_F_SETUTIME
+      END
+    POPUP "&Help"
+      BEGIN
+        MENUITEM "&About...", IDM_F_ABOUT
+        MENUITEM SEPARATOR
+        MENUITEM "Time zones...", IDM_F_TIMEZONE
+      END
+  END
+
+/* The Geometry structure specifies the size and position  of  various
+   items  in  the  open  window display.  These may require adjustment
+   based on the label length in the  language  in  which  Moontool  is
+   delivered.   All  are specified in units of the text font's maximum
+   character width or line  spacing  so  that  the  window  adapts  to
+   various system fonts.  */
+
+Geometry RCDATA
+BEGIN
+    34,                         /* Window width */
+    20,                         /* Window height */
+    28,                         /* Moon image column */
+    10,                         /* Information column */
+    16                          /* Lunation column */
+END
+
+/*  String table.  All strings displayed by Moontool (other than those
+    in dialogues, which  can  be  modified  by  editing  the  dialogue
+    definitions)  appear  in  the  following  table.   Moontool may be
+    translated to another language by translating these  strings.   If
+    your  translation  substantially  alters  the  lengths  of certain
+    strings, you may need to adjust the tab stop  positions  given  in
+    the table above to prevent items overwriting another.  */
+
+STRINGTABLE
+BEGIN
+  IDS_ERR_CREATE_WINDOW,    "Window creation failed!"
+  IDS_ERR_REGISTER_CLASS,   "Error registering window class"
+  IDS_ERR_TRUEPHASE,        "TRUEPHASE called with invalid phase selector."
+  IDS_ERR_IERR,         "Moontool: Internal Error"
+  IDS_ERR_TZWARN,       "Moontool Warning: No Time Zone Specified"
+  IDS_ERR_NOTZSET,      "No SET TZ=: assuming U.S. Pacific time zone.  See Help/Time zones for details."
+
+  IDS_ITEM_LABELS+0,    "Julian date:"
+  IDS_ITEM_LABELS+1,    "Universal time:"
+  IDS_ITEM_LABELS+2,    "Local time:"
+  IDS_ITEM_LABELS+3,    ""
+  IDS_ITEM_LABELS+4,    "Age of moon:"
+  IDS_ITEM_LABELS+5,    "Moon phase:"
+  IDS_ITEM_LABELS+6,    "Moon's distance:"
+  IDS_ITEM_LABELS+7,    "Moon subtends:"
+  IDS_ITEM_LABELS+8,    ""
+  IDS_ITEM_LABELS+9,    "Sun's distance:"
+  IDS_ITEM_LABELS+10,   "Sun subtends:"
+  IDS_ITEM_LABELS+11,   ""
+  IDS_ITEM_LABELS+12,   "Last new moon:"
+  IDS_ITEM_LABELS+13,   "First quarter:"
+  IDS_ITEM_LABELS+14,   "Full moon:"
+  IDS_ITEM_LABELS+15,   "Last quarter:"
+  IDS_ITEM_LABELS+16,   "Next new moon:"
+
+  IDS_MONTH_NAMES+0,    "January"
+  IDS_MONTH_NAMES+1,    "February"
+  IDS_MONTH_NAMES+2,    "March"
+  IDS_MONTH_NAMES+3,    "April"
+  IDS_MONTH_NAMES+4,    "May"
+  IDS_MONTH_NAMES+5,    "June"
+  IDS_MONTH_NAMES+6,    "July"
+  IDS_MONTH_NAMES+7,    "August"
+  IDS_MONTH_NAMES+8,    "September"
+  IDS_MONTH_NAMES+9,    "October"
+  IDS_MONTH_NAMES+10,   "November"
+  IDS_MONTH_NAMES+11,   "December"
+
+  IDS_FORMATS+0,        "%dh %dm"
+  IDS_FORMATS+1,        "%dd %dh"
+  IDS_FORMATS+2,        "%.5f"
+  IDS_FORMATS+3,        "%02d:%02d:%02d %2d %s %ld"
+  IDS_FORMATS+4,        "%02d:%02d:%02d %2d %s %d"
+  IDS_FORMATS+5,        "%d %s, %d %s, %d %s."
+  IDS_FORMATS+6,        "%d%%   (0%% = New, 100%% = Full)"
+  IDS_FORMATS+7,        "%ld kilometres, %.1f Earth radii."
+  IDS_FORMATS+8,        "%.4f degrees."
+  IDS_FORMATS+9,        "%.0f kilometres, %.3f astronomical units."
+  IDS_FORMATS+10,       "%.4f degrees."
+  IDS_FORMATS+11,       "Lunation: %ld"
+  IDS_FORMATS+12,       "%02d:%02d UTC %2d %s %ld"
+  IDS_FORMATS+13,       "%02d:%02d:%02d %2d %s %d"
+  IDS_FORMATS+14,       "(invalid)"
+
+  IDS_MINUTE,           "minute"
+  IDS_MINUTES,          "minutes"
+  IDS_HOUR,             "hour"
+  IDS_HOURS,            "hours"
+  IDS_DAY,              "day"
+  IDS_DAYS,             "days"
+
+  IDS_APPNAME,          "Moontool"
+END
+
+colourmoon BITMAP moon.bmp              /* 64x64 Moon bitmap */
+iconmoon   BITMAP moonicon.bmp          /* 32x32 Moon icon bitmap */
+
+/* Dialogue definitions */
+
+#include "about.dlg"
+#include "julian.dlg"
+#include "utc.dlg"
+#include "timezone.dlg"
+

@@ -1,0 +1,16 @@
+
+100 DIALOG 147, 40, 174, 115
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "About Moontool"
+FONT 8, "Helv"
+BEGIN
+    CTEXT           "Moontool for Windows", 101, 33, 30, 108, 8
+    LTEXT           "", 102, 78, 38, 20, 8
+    CTEXT           "by John Walker", 103, 47, 51, 83, 8
+    CTEXT           "http://www.fourmilab.ch/", 104, 35, 59, 108, 8
+    CTEXT           "This program is in the public domain.", 105, 15, 73, 
+                    146, 8
+    PUSHBUTTON      "OK", IDOK, 67, 91, 40, 14
+    ICON            "MOONTOOL", 116, 79, 6, 18, 20
+    CTEXT           "Release 1.02", 106, 33, 39, 108, 8
+END

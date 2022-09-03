@@ -1,0 +1,142 @@
+.TH MOONTOOL 1 "1 JANUARY 1992"
+.UC 4
+.SH NAME
+moontool \- Moon for OpenWindows
+.SH SYNOPSIS
+.B moontool
+[-mcbt]
+.SH DESCRIPTION
+.B Moontool
+is an OpenWindows application which displays information about the moon in
+real time.  When closed (iconic) it displays a graphical representation
+of what the moon would look like right now if you were to go outside and
+look at it. (Go on, try it, the fresh air may do you some good).  When
+the window is open, the same image of the moon is displayed in the upper
+right of the window, along with more verbose information about both the
+moon and the sun (the bright yellow thing in the sky, not the thing you're
+staring at right now.  It's not a good idea to stare at the bright yellow
+thing).  The open window display is updated approximately once
+per second, the icon is updated every two minutes.
+.PP
+.B Moontool
+will run on both monochrome and color Suns.  Unless explicity told to
+run in either the monochrome
+.I (-m)
+or the color
+.I (-c)
+mode,
+.B moontool
+will automatically select the appropriate mode.  On color displays,
+the moon's face is rendered in eight colors in both the icon and the
+open window.  The darkened portion of the moon is visible on color displays
+as dark shades of blue.  On monochrome displays, only the illuminated
+portion of the face is drawn in.
+.PP
+If
+.B moontool
+is run with the
+.I -b
+option, a one pixel border will be drawn around the moon's image
+when the window is iconic.  This may improve the aesthetic appeal
+of the icon, depending on your choice of desktop background and/or
+the arrangement of windows and icons on the screen.  The border is
+white on monochrome displays, light red on color.
+.PP
+As an extra added bonus for users of
+color displays, the Apollo 11 Commemorative Red Dot has been added to the
+face of the moon at the approximate location of Tranquility Base, to
+mark the 20th anniversary of An Historic Event.
+.PP
+The image of the moon's face used by
+.B moontool,
+especially the color version, is quite accurate.  It was rendered on an
+Amiga by Joe Hitchens, an artist of no small talent, from an illustration
+in an astronomy textbook.
+.PP
+If invoked with the
+.I -t
+option,
+.B moontool
+will start up in test mode.  In test mode, the tool warps through time,
+updating the display as fast as possible, skipping approximately one
+hour per cycle.  A menu is available on the tool, for both the icon and
+the open window, which will let you switch in and out of test mode at will.
+This is what's known as a cheap thrill, and can provide endless hours of
+entertainment (if you're easily entertained).
+.PP
+For those who are lycanthropically inclined, the open window tells
+you when the next full moon will occur.  This may or may not be something
+you'll want to know.
+.SH TEDIOUS TECHNICAL CREDITS
+Believe it or not,
+.B moontool
+uses some actual science and even authentic mathematics.  If you're into
+that sort of thing, you might like to know that the following books
+were used by the original author to create
+.B moontool:
+.PP
+"Practical Astronomy With Your Calculator" by Peter Duffett-Smith,
+Second Edition, Cambridge University Press, 1981.
+.PP
+"Astronomical Formulae for Calculators" by Jean Meeus, Third Edition,
+Willmann-Bell, 1985.
+.PP
+"Planetary Programs and Tables from -4000 to +2800" by Pierre Bretagnon
+and Jean-Louis Simon, Willmann-Bell, 1986.
+.PP
+"Celestial BASIC" by Eric Burgess, Revised Edition, Sybex, 1985.
+.PP
+This one was used by Joe to render the moon image and by me to locate
+the Apollo 11 landing site:
+.PP
+"Astronomy: From the Earth to the Universe" by Jay M. Pasachoff,
+Second Edition, Saunders College Publishing, 1983
+.SH SEE ALSO
+The real moon.
+.SH BUGS
+.B Moontool
+may not always guess properly that it is running on a color Sun.  Suns with
+"dual" framebuffers, like the 3/60C, can run a tool in the monochrome
+plane rather than the color planes, depending on various
+.B Suntools
+options.  This may cause
+.B moontool
+to think it is running mono even though color is available.  Use the
+.I -c
+option to force it to try to run in color mode.
+.PP
+.B Moontool
+uses
+.B getopt(3)
+to parse command line arguments, which does not interact well with some
+of the standard
+.B suntools(1)
+arguments.  If you mix any of the
+.B moontool
+arguments with
+.B suntools
+arguments, place the
+.B moontool
+args first.
+.SH AUTHORS
+.RS 5
+.nf
+John Walker
+http://www.fourmilab.ch/
+.fi
+.RE
+
+.br
+Original author of
+.B moontool
+(the one who did the hard part).
+.PP
+Ron Hitchens, Independent Hacker.  Adder-on of various "features" and
+"improvements".  Culprit responsible for this stoopid
+man page.
+.br
+ ronbo@vixen.uucp
+.br
+ ...!uunet!cs.utah.edu!caeco!vixen!ronbo
+.br
+ hitchens@cs.utexas.edu

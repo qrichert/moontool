@@ -102,6 +102,18 @@ static char *dayname[] = {
     "Thursday", "Friday", "Saturday"
 };
 
+static char *phaname[] = {
+    "New Moon", "Waxing Crescent", "First Quarter",
+    "Waxing Gibbous", "Full Moon", "Waning Gibbous",
+    "Last Quarter", "Waning Crescent"
+};
+
+static char *moonicn[] = {
+    "\U0001f311", "\U0001f312", "\U0001f313",  // 🌑 🌒 🌓
+    "\U0001f314", "\U0001f315", "\U0001f316",  // 🌔 🌕 🌖
+    "\U0001f317", "\U0001f318"                 // 🌗 🌘
+};
+
 /*  Forward functions  */
 
 static void fmt_phase_time(double utime, char *buf);
@@ -115,6 +127,29 @@ static double phase(double pdate, double *pphase, double *mage, double *dist,
                     double *angdia, double *sudist, double *suangdia);
 
 /* Custom API */
+
+static int fraction_of_lunation_to_phase(double p)
+{
+    const double day_frac = (1 / synmonth) * 0.75;
+
+    if (p < 0.00 + day_frac)
+        return 0;
+    if (p < 0.25 - day_frac)
+        return 1;
+    if (p < 0.25 + day_frac)
+        return 2;
+    if (p < 0.50 - day_frac)
+        return 3;
+    if (p < 0.50 + day_frac)
+        return 4;
+    if (p < 0.75 - day_frac)
+        return 5;
+    if (p < 0.75 + day_frac)
+        return 6;
+    if (p < 1.00 - day_frac)
+        return 7;
+    return 0;
+}
 
 int moonphase(MoonPhase *mphase, const time_t *timestamp)
 {
@@ -140,6 +175,7 @@ int moonphase(MoonPhase *mphase, const time_t *timestamp)
     mphase->utc_datetime = gm;
     mphase->age_of_moon = aom;
     mphase->fraction_of_lunation = p;
+    mphase->phase = fraction_of_lunation_to_phase(p);
     mphase->moon_fraction_illuminated = cphase;
     mphase->moon_distance_to_earth_km = cdist;
     mphase->moon_distance_to_earth_earth_radii = cdist / earthrad;
@@ -213,7 +249,12 @@ void print_moonphase(const MoonPhase *mphase)
         EPL(aom_m),
         EPL(aom_s)
     );
-    printf("Lunation:\t\t%.2f%%\n", mphase->fraction_of_lunation * 100);
+    printf(
+        "Lunation:\t\t%.2f%%   (%s %s)\n",
+        mphase->fraction_of_lunation * 100,
+        moonicn[mphase->phase],
+        phaname[mphase->phase]
+    );
     printf(
         "Moon phase:\t\t%.2f%%   (0%% = New, 100%% = Full)\n\n",
         mphase->moon_fraction_illuminated * 100

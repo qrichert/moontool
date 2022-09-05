@@ -59,7 +59,7 @@ Universal time:         Thursday  13:53:34 22 December 1994
 Local time:             Thursday  14:53:34 22 December 1994
 
 Age of moon:            18 days, 22 hours, 29 minutes, 55 seconds.
-Lunation:               64.13%
+Lunation:               64.13%   (🌖 Waning Gibbous)
 Moon phase:             81.56%   (0% = New, 100% = Full)
 
 Moon's distance:        386212 kilometres, 60.6 Earth radii.

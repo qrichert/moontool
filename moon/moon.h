@@ -15,6 +15,7 @@ typedef struct {
     struct tm* utc_datetime;
     double age_of_moon;
     double fraction_of_lunation;
+    int phase;
     double moon_fraction_illuminated;
     double moon_distance_to_earth_km;
     double moon_distance_to_earth_earth_radii;

@@ -48,6 +48,8 @@ directory.
 You can run it bare for real-time data, or pass it a Unix timestamp
 of a specific moment in time (negative timestamps allowed).
 
+To install it, run `make && sudo make install`.
+
 ```
 $ moontool 788104414
 

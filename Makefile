@@ -9,6 +9,7 @@ CXXFLAGS := \
 	-O3 \
 	-std=c++20
 RM := rm -rf
+PREFIX ?= /usr/local
 
 C_FILES := $(wildcard *.c moon/*.c)
 C_OBJ_FILES := $(C_FILES:.c=.o)
@@ -26,6 +27,11 @@ build/moontool: $(CPP_OBJ_FILES) $(C_OBJ_FILES)
 	@mkdir -p build
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(C_LIBS)
 
+
+.PHONY: install
+install:
+	install -d $(PREFIX)/bin/
+	install ./build/moontool $(PREFIX)/bin/
 
 .PHONY: clean
 clean:

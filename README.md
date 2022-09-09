@@ -45,13 +45,15 @@ The demo does just that.
 Run `make` and execute the resulting `moontool` program in the `build/`
 directory.
 
-You can run it bare for real-time data, or pass it a Unix timestamp
-of a specific moment in time (negative timestamps allowed).
+You can run it bare for real-time data, pass it a datetime string or a
+Unix timestamp (negative values allowed).
+
+Use `-h` option for help.
 
 To install it, run `make && sudo make install`.
 
 ```
-$ moontool 788104414
+$ moontool 1994-12-22T14:53:34
 
 Phase
 =====

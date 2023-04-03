@@ -82,3 +82,19 @@ Last quarter:           Sunday    19:07 UTC 25 December 1994
 Next new moon:          Sunday    10:56 UTC  1 January 1995     Lunation: 891
 
 ```
+
+### Web
+
+To run the demo as a web app, make sure you've installed it as described
+above, then run:
+
+```shell
+# Requires Python >= 3.7
+python web.py [--help] [--port 2222]
+```
+
+To run it in the background, without worrying about the log:
+
+```shell
+nohup python web.py > /dev/null 2>&1 < /dev/null &
+```

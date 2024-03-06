@@ -1,3 +1,7 @@
+/**
+ * Command Line Interface for moon.c.
+ */
+
 #include "moon/moon.h"
 
 #include <cstdlib>

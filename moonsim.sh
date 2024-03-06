@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Simulate a whole lunation (lunar month).
+# New Moon -> Full Moon -> New Moon
+
 START=794058669
 END=796616119
 DAY_QUARTER=21600

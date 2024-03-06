@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+"""The Moontool CLI served over the web."""
+
 import argparse
 import subprocess
 from http.server import BaseHTTPRequestHandler, HTTPServer

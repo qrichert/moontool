@@ -53,7 +53,7 @@ def moontool(date: str) -> str:
     command: list[str] = ["moontool"]
     if date:
         command.append(date)
-    res: bytes = subprocess.run(
+    res: subprocess.CompletedProcess = subprocess.run(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
     return res.stdout
@@ -65,8 +65,8 @@ def serve(port: int) -> None:
             url: parse.ParseResult = parse.urlparse(self.path)
             query: dict = parse.parse_qs(url.query)
             if url.path == "/":
-                date: list = query.get("date") or query.get("d") or []
-                date: str = date[0] if date else ""
+                date_param: list[str] = query.get("date") or query.get("d") or []
+                date: str = date_param[0] if date_param else ""
                 self.index(date)
             else:
                 self.error()
@@ -85,9 +85,9 @@ def serve(port: int) -> None:
             self.send_response(404)
             self.end_headers()
 
+    print(f"Serving on http://0.0.0.0:{port}")
+    moon_server = HTTPServer(("0.0.0.0", port), MoonServer)
     try:
-        print(f"Serving on http://0.0.0.0:{port}")
-        moon_server = HTTPServer(("0.0.0.0", port), MoonServer)
         moon_server.serve_forever()
     except KeyboardInterrupt:
         moon_server.server_close()

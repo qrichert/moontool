@@ -1,4 +1,6 @@
 /.idea/
+/.vscode/
+/.venv/
 /build/
 .DS_Store
 *.o

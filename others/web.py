@@ -1,6 +1,26 @@
 #!/usr/bin/env python3
 
-"""The Moontool CLI served over the web."""
+"""The Moontool CLI, served over the web.
+
+First, make sure you've installed the CLI version:
+
+```shell
+make && sudo make install
+```
+
+Then start the web server:
+
+```shell
+# Requires Python >= 3.9
+python web.py [--help] [--port 2222]
+```
+
+To run it in the background, without worrying about the logs:
+
+```shell
+nohup python web.py > /dev/null 2>&1 < /dev/null &
+```
+"""
 
 import argparse
 import subprocess

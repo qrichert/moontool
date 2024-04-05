@@ -32,15 +32,15 @@ against C's standard math library (`-lm`).
 
 It is C code, but can be used as-is in C++ projects.
 
-If in doubt, take a look at how the demo is built in the
+If in doubt, take a look at how the CLI is built in the
 [`Makefile`](./Makefile).
 
-## Demo
+## CLI
 
 This version includes functions that print out info about the Moon in a
 way similar to the original program.
 
-The demo does just that.
+The CLI does just that.
 
 Run `make` and execute the resulting `moontool` program in the `build/`
 directory.
@@ -83,18 +83,9 @@ Next new moon:          Sunday    10:56 UTC  1 January 1995     Lunation: 891
 
 ```
 
-### Web
+### Others
 
-To run the demo as a web app, make sure you've installed it as described
-above, then run:
+This repo [also includes](./others):
 
-```shell
-# Requires Python >= 3.7
-python web.py [--help] [--port 2222]
-```
-
-To run it in the background, without worrying about the log:
-
-```shell
-nohup python web.py > /dev/null 2>&1 < /dev/null &
-```
+- `moonsim.sh` A shell script that simulates a lunation.
+- `web.py` A simple Python script that serves the CLI over the web.

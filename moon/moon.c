@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
 
 #define TRUE        1
@@ -116,12 +117,15 @@ static char *moonicn[] = {
 
 /*  Forward functions  */
 
-static void fmt_phase_time(double utime, char *buf);
+static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf);
+static void mooncal_to_strbuf(const MoonCalendar *mcal, char *buf);
+static void fmt_phase_time(const struct tm *gm, char *buf);
 static double jtime(struct tm *t);
+static double ucttoj(long year, int mon, int mday, int hour, int min, int sec);
+static void jtouct(double utime, struct tm *gm);
 static void jyear(double td, long *yy, int *mm, int *dd);
 static void jhms(double j, int *h, int *m, int *s);
 static int jwday(double j);
-static double ucttoj(long year, int mon, int mday, int hour, int min, int sec);
 static void phasehunt(double sdate, double phases[5]);
 static double phase(double pdate, double *pphase, double *mage, double *dist,
                     double *angdia, double *sudist, double *suangdia);
@@ -130,6 +134,12 @@ static double phase(double pdate, double *pphase, double *mage, double *dist,
 
 static int fraction_of_lunation_to_phase(double p)
 {
+    /* Apart from  Waxing and  Waning, the other phases are very precise
+       moments in  time.   For example,  Full Moon  occurs  precisely at
+       `phase = 0.5`. This is too restrictive; for an observer, the Moon
+       appears Full over a larger timespan, rather than a single moment.
+       `day_frac` acts as padding around these lunar events,  elongating
+       their duration artificially. */
     const double day_frac = (1 / synmonth) * 0.75;
 
     if (p < 0.00 + day_frac)
@@ -151,6 +161,17 @@ static int fraction_of_lunation_to_phase(double p)
     return 0;
 }
 
+void tmcpy(struct tm *destination, const struct tm *source)
+{
+    // gmtime() et al. return a pointer to statically allocated memory.
+    // This function's purpose is to _copy_ the values in static memory
+    // pointed to by `source` into an _owned_ container pointed to by
+    // `destination`. This is necessary because the static memory may
+    // change during the lifetime of `source` (e.g., if gmtime() is
+    // called again).
+    *destination = *source;
+}
+
 int moonphase(MoonPhase *mphase, const time_t *timestamp)
 {
     long t;  // Original implementation casts time()'s time_t to a long.
@@ -164,7 +185,7 @@ int moonphase(MoonPhase *mphase, const time_t *timestamp)
 
     gm = gmtime(&t);
     if (gm == NULL)
-        return FALSE;  // Check errno for error (set by gmtime()).
+        return FALSE;
 
     jd = jtime(gm);
 
@@ -172,14 +193,17 @@ int moonphase(MoonPhase *mphase, const time_t *timestamp)
 
     mphase->julian_date = jd;
     mphase->utc_timestamp = (time_t) t;
-    mphase->utc_datetime = gm;
-    mphase->age_of_moon = aom;
+    tmcpy(&mphase->utc_datetime, gm);
+    mphase->utc_datetime.tm_zone = NULL;  // Pointer to static memory.
+    mphase->age = aom;
     mphase->fraction_of_lunation = p;
     mphase->phase = fraction_of_lunation_to_phase(p);
-    mphase->moon_fraction_illuminated = cphase;
-    mphase->moon_distance_to_earth_km = cdist;
-    mphase->moon_distance_to_earth_earth_radii = cdist / earthrad;
-    mphase->moon_subtends = cangdia;
+    mphase->phase_name = phaname[mphase->phase];
+    mphase->phase_icon = moonicn[mphase->phase];
+    mphase->fraction_illuminated = cphase;
+    mphase->distance_to_earth_km = cdist;
+    mphase->distance_to_earth_earth_radii = cdist / earthrad;
+    mphase->subtends = cangdia;
     mphase->sun_distance_to_earth_km = csund;
     mphase->sun_distance_to_earth_astronomical_units = csund / sunsmax;
     mphase->sun_subtends = csuang;
@@ -196,33 +220,42 @@ static int init_moonphase(MoonPhase *mphase)
 
 void print_moonphase(const MoonPhase *mphase)
 {
+    char buf[1000];
+    moonphase_to_strbuf(mphase, buf);
+    printf("%s\n", buf);
+}
+
+static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf)
+{
     MoonPhase p;
     if (mphase == NULL) {
         if (!init_moonphase((MoonPhase*) (mphase = &p))) {
-            printf("Error computing info about the phase of the Moon.\n");
+            fprintf(stderr, "Error computing info about the phase of the Moon.\n");
             exit(EXIT_FAILURE);
         }
     }
 
     double aom;
-    int aom_d, aom_h, aom_m, aom_s;
+    int aom_d, aom_h, aom_m;
+    unsigned int offset = 0;
 
-    aom = mphase->age_of_moon;
+    aom = mphase->age;
     aom_d = (int) aom;
     aom_h = (int) (24 * (aom - floor(aom)));
     aom_m = (int) (1440 * (aom - floor(aom))) % 60;
-    aom_s = (int) (86400 * (aom - floor(aom))) % 60;
 
-    struct tm *gm = mphase->utc_datetime;
+    const struct tm *gm = &mphase->utc_datetime;
 
-    printf("Phase\n=====\n\n");
-    printf(
+    offset += sprintf(buf + offset, "Phase\n=====\n\n");
+    offset += sprintf(
+        buf + offset,
         "Julian date:\t\t%.5f   (0h variant: %.5f)\n",
         mphase->julian_date,
         mphase->julian_date + 0.5
     );
-    printf(
-        "Universal time:\t\t%-9s %2d:%02d:%02d %2d %s %d\n",
+    offset += sprintf(
+        buf + offset,
+        "Universal time:\t\t%-9s %2d:%02d:%02d %2d %-5s %d\n",
         dayname[gm->tm_wday],
         gm->tm_hour,
         gm->tm_min,
@@ -232,8 +265,9 @@ void print_moonphase(const MoonPhase *mphase)
         gm->tm_year + 1900
     );
     gm = localtime(&mphase->utc_timestamp);
-    printf(
-        "Local time:\t\t%-9s %2d:%02d:%02d %2d %s %d\n\n",
+    offset += sprintf(
+        buf + offset,
+        "Local time:\t\t%-9s %2d:%02d:%02d %2d %-5s %d\n\n",
         dayname[gm->tm_wday],
         gm->tm_hour,
         gm->tm_min,
@@ -242,37 +276,88 @@ void print_moonphase(const MoonPhase *mphase)
         moname[gm->tm_mon],
         gm->tm_year + 1900
     );
-    printf(
-        "Age of moon:\t\t%d day%s, %d hour%s, %d minute%s, %d second%s.\n",
+
+    offset += sprintf(
+        buf + offset,
+        "Age of moon:\t\t%d day%s, %d hour%s, %d minute%s.\n",
         EPL(aom_d),
         EPL(aom_h),
-        EPL(aom_m),
-        EPL(aom_s)
+        EPL(aom_m)
     );
-    printf(
+    offset += sprintf(
+        buf + offset,
         "Lunation:\t\t%.2f%%   (%s %s)\n",
         mphase->fraction_of_lunation * 100,
-        moonicn[mphase->phase],
-        phaname[mphase->phase]
+        mphase->phase_icon,
+        mphase->phase_name
     );
-    printf(
+    offset += sprintf(
+        buf + offset,
         "Moon phase:\t\t%.2f%%   (0%% = New, 100%% = Full)\n\n",
-        mphase->moon_fraction_illuminated * 100
+        mphase->fraction_illuminated * 100
     );
 
-    printf(
+    offset += sprintf(
+        buf + offset,
         "Moon's distance:\t%ld kilometres, %.1f Earth radii.\n",
-        (long) mphase->moon_distance_to_earth_km,
-        mphase->moon_distance_to_earth_earth_radii
+        (long) mphase->distance_to_earth_km,
+        mphase->distance_to_earth_earth_radii
     );
-    printf("Moon subtends:\t\t%.4f degrees.\n\n", mphase->moon_subtends);
+    offset += sprintf(
+        buf + offset,
+        "Moon subtends:\t\t%.4f degrees.\n\n",
+        mphase->subtends
+    );
 
-    printf(
-        "Sun's distance:\t\t%.0f kilometres, %.3f astronomical units.\n",
-        mphase->sun_distance_to_earth_km,
+    offset += sprintf(
+        buf + offset,
+        "Sun's distance:\t\t%ld kilometres, %.3f astronomical units.\n",
+        (long) mphase->sun_distance_to_earth_km,
         mphase->sun_distance_to_earth_astronomical_units
     );
-    printf("Sun subtends:\t\t%.4f degrees.\n", mphase->sun_subtends);
+    offset += sprintf(
+        buf + offset,
+        "Sun subtends:\t\t%.4f degrees.",
+        mphase->sun_subtends
+    );
+}
+
+void print_moonphase_debug(const MoonPhase* mphase)
+{
+    MoonPhase p;
+    if (mphase == NULL) {
+        if (!init_moonphase((MoonPhase*) (mphase = &p))) {
+            fprintf(stderr, "Error computing info about the phase of the Moon.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    char utc_datetime[80];
+    fmt_phase_time(&mphase->utc_datetime, utc_datetime);
+
+    printf("MoonPhase {\n");
+    printf("    julian_date: %f,\n", mphase->julian_date);
+    printf("    utc_timestamp: %ld,\n", mphase->utc_timestamp);
+    printf("    utc_datetime: %s\n", utc_datetime);
+    printf("    age: %f,\n", mphase->age);
+    printf("    fraction_of_lunation: %f,\n", mphase->fraction_of_lunation);
+    printf("    phase: %d,\n", mphase->phase);
+    printf("    phase_name: %s,\n", mphase->phase_name);
+    printf("    phase_icon: %s,\n", mphase->phase_icon);
+    printf("    fraction_illuminated: %f,\n", mphase->fraction_illuminated);
+    printf("    distance_to_earth_km: %f,\n", mphase->distance_to_earth_km);
+    printf(
+        "    distance_to_earth_earth_radii: %f,\n",
+        mphase->distance_to_earth_earth_radii
+    );
+    printf("    subtends: %f,\n", mphase->subtends);
+    printf("    sun_distance_to_earth_km: %f,\n", mphase->sun_distance_to_earth_km);
+    printf(
+        "    sun_distance_to_earth_astronomical_units: %f,\n",
+        mphase->sun_distance_to_earth_astronomical_units
+    );
+    printf("    sun_subtends: %f,\n", mphase->sun_subtends);
+    printf("}\n");
 }
 
 int mooncal(MoonCalendar *mcal, const time_t *timestamp)
@@ -290,19 +375,29 @@ int mooncal(MoonCalendar *mcal, const time_t *timestamp)
 
     gm = gmtime(&t);
     if (gm == NULL)
-        return FALSE;  // Check errno for error (set by gmtime()).
+        return FALSE;
 
     jd = jtime(gm);
 
     phasehunt(jd + 0.5, phasar);
     lunation = (long) floor(((phasar[0] + 7) - lunatbase) / synmonth) + 1;
 
-    mcal->last_new_moon = phasar[0];
     mcal->lunation = lunation;
+
+    mcal->last_new_moon = phasar[0];
+    jtouct(phasar[0], &mcal->last_new_moon_utc);
+
     mcal->first_quarter = phasar[1];
+    jtouct(phasar[1], &mcal->first_quarter_utc);
+
     mcal->full_moon = phasar[2];
+    jtouct(phasar[2], &mcal->full_moon_utc);
+
     mcal->last_quarter = phasar[3];
+    jtouct(phasar[3], &mcal->last_quarter_utc);
+
     mcal->next_new_moon = phasar[4];
+    jtouct(phasar[4], &mcal->next_new_moon_utc);
 
     return TRUE;
 }
@@ -312,47 +407,99 @@ static int init_mooncal(MoonCalendar *mcal)
     return mooncal(mcal, NULL);
 }
 
-void print_mooncal(const MoonCalendar *mcal)
+void print_mooncal(const MoonCalendar *mcal) {
+    char buf[500];
+    mooncal_to_strbuf(mcal, buf);
+    printf("%s\n", buf);
+}
+
+static void mooncal_to_strbuf(const MoonCalendar *mcal, char *buf)
 {
     MoonCalendar c;
     if (mcal == NULL) {
         if (!init_mooncal((MoonCalendar*) (mcal = &c))) {
-            printf("Error computing the Moon calendar.\n");
+            fprintf(stderr, "Error computing the Moon calendar.\n");
             exit(EXIT_FAILURE);
         }
     }
 
     char tbuf[80];
+    unsigned int offset = 0;
 
-    printf("Moon Calendar\n=============\n\n");
-    fmt_phase_time(mcal->last_new_moon, tbuf);
-    printf("Last new moon:\t\t%s\tLunation: %ld\n", tbuf, mcal->lunation);
-    fmt_phase_time(mcal->first_quarter, tbuf);
-    printf("First quarter:\t\t%s\n", tbuf);
-    fmt_phase_time(mcal->full_moon, tbuf);
-    printf("Full moon:\t\t%s\n", tbuf);
-    fmt_phase_time(mcal->last_quarter, tbuf);
-    printf("Last quarter:\t\t%s\n", tbuf);
-    fmt_phase_time(mcal->next_new_moon, tbuf);
-    printf("Next new moon:\t\t%s\tLunation: %ld\n", tbuf, mcal->lunation + 1);
+    offset += sprintf(buf + offset, "Moon Calendar\n=============\n\n");
+    fmt_phase_time(&mcal->last_new_moon_utc, tbuf);
+    offset += sprintf(
+        buf + offset,
+        "Last new moon:\t\t%s\tLunation: %ld\n",
+        tbuf,
+        mcal->lunation
+    );
+    fmt_phase_time(&mcal->first_quarter_utc, tbuf);
+    offset += sprintf(buf + offset, "First quarter:\t\t%s\n", tbuf);
+    fmt_phase_time(&mcal->full_moon_utc, tbuf);
+    offset += sprintf(buf + offset, "Full moon:\t\t%s\n", tbuf);
+    fmt_phase_time(&mcal->last_quarter_utc, tbuf);
+    offset += sprintf(buf + offset, "Last quarter:\t\t%s\n", tbuf);
+    fmt_phase_time(&mcal->next_new_moon_utc, tbuf);
+    offset += sprintf(
+        buf + offset,
+        "Next new moon:\t\t%s\tLunation: %ld",
+        tbuf,
+        mcal->lunation + 1
+    );
+}
+
+void print_mooncal_debug(const MoonCalendar* mcal)
+{
+    MoonCalendar c;
+    if (mcal == NULL) {
+        if (!init_mooncal((MoonCalendar*) (mcal = &c))) {
+            fprintf(stderr, "Error computing the Moon calendar.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    char last_new_moon_utc[80];
+    fmt_phase_time(&mcal->last_new_moon_utc, last_new_moon_utc);
+
+    char first_quarter_utc[80];
+    fmt_phase_time(&mcal->first_quarter_utc, first_quarter_utc);
+
+    char full_moon_utc[80];
+    fmt_phase_time(&mcal->full_moon_utc, full_moon_utc);
+
+    char last_quarter_utc[80];
+    fmt_phase_time(&mcal->last_quarter_utc, last_quarter_utc);
+
+    char next_new_moon_utc[80];
+    fmt_phase_time(&mcal->next_new_moon_utc, next_new_moon_utc);
+
+    printf("MoonCalendar {\n");
+    printf("    lunation: %ld,\n", mcal->lunation);
+    printf("    last_new_moon: %f,\n", mcal->last_new_moon);
+    printf("    last_new_moon_utc: %s,\n", last_new_moon_utc);
+    printf("    first_quarter: %f,\n", mcal->first_quarter);
+    printf("    first_quarter_utc: %s,\n", first_quarter_utc);
+    printf("    full_moon: %f,\n", mcal->full_moon);
+    printf("    full_moon_utc: %s,\n", full_moon_utc);
+    printf("    last_quarter: %f,\n", mcal->last_quarter);
+    printf("    last_quarter_utc: %s,\n", last_quarter_utc);
+    printf("    next_new_moon: %f,\n", mcal->next_new_moon);
+    printf("    next_new_moon_utc: %s,\n", next_new_moon_utc);
+    printf("}\n");
 }
 
 /* Original Astronomical Calculation Routines */
 
-/*  FMT_PHASE_TIME  --  Format  the  provided  julian  date  into  the
+/*  FMT_PHASE_TIME  --  Format  the provided  date and time  into  the
                         provided  buffer  in  UTC  format  for  screen
                         display  */
 
-static void fmt_phase_time(double utime, char *buf)
+static void fmt_phase_time(const struct tm *gm, char *buf)
 {
-    long yy;
-    int wday, mm, dd, hh, mmm, ss;
-
-    wday = jwday(utime);
-    jyear(utime, &yy, &mm, &dd);
-    jhms(utime, &hh, &mmm, &ss);
-    sprintf(buf, "%-9s %2d:%02d UTC %2d %s %ld",
-    dayname [wday], hh, mmm, dd, moname [mm - 1], yy);
+    sprintf(buf, "%-9s %2d:%02d UTC %2d %-5s %d",
+    dayname [gm->tm_wday], gm->tm_hour, gm->tm_min,
+    gm->tm_mday, moname [gm->tm_mon], gm->tm_year + 1900);
 }
 
 /*  JTIME  --  Convert a Unix date and time (tm) structure to astronomical
@@ -406,6 +553,31 @@ static double ucttoj(long year, int mon, int mday,
     return (((long) (365.25 * (y + 4716))) + ((int) (30.6001 * (m + 1))) +
                 mday + b - 1524.5) +
             ((sec + 60L * (min + 60L * hour)) / 86400.0);
+}
+
+/*  JTOUCT  --  Convert astronomical Julian time (i.e. Julian date
+                plus day fraction, expressed as a double) to GMT
+                date and time.  */
+
+static void jtouct(double utime, struct tm *gm)
+{
+    long yy;
+    int mm, dd, wday, hh, mmm, ss;
+
+    jyear(utime, &yy, &mm, &dd);
+    jhms(utime, &hh, &mmm, &ss);
+    wday = jwday(utime);
+
+    memset(gm, 0, sizeof(struct tm));
+    gm->tm_isdst = 0;  // Explicitly UTC.
+
+    gm->tm_year = yy - 1900;
+    gm->tm_mon = mm - 1;
+    gm->tm_mday = dd;
+    gm->tm_wday = wday;
+    gm->tm_hour = hh;
+    gm->tm_min = mmm;
+    gm->tm_sec = ss;
 }
 
 /*  JYEAR  --  Convert    Julian    date  to  year,  month, day, which are
@@ -731,7 +903,6 @@ static double phase(
 
     MoonPar = mparallax / MoonDFrac;
 
-    // TODO: Unused variables.
     (void) Lambdamoon;
     (void) BetaM;
     (void) MoonPar;

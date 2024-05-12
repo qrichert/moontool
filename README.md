@@ -1,6 +1,7 @@
 # Moontool
 
 [![license: 0BSD](https://img.shields.io/badge/license-0BSD-blue)](https://opensource.org/license/0BSD)
+[![crates.io](https://img.shields.io/crates/d/moontool?logo=rust&logoColor=white&color=orange)](https://crates.io/crates/moontool)
 
 John Walker's moontool.c astronomical calculation routines, extracted.
 
@@ -91,6 +92,18 @@ Next new moon:          Sunday    10:56 UTC  1 January 1995     Lunation: 891
 ### Ports to Other Languages
 
 - `python/moon/moon.py` A port to Python.
+- `rust/src/moon.rs` A port to Rust.
+
+The C and Python versions stick as closely as possible to the original.
+
+The Rust version takes some liberties to provide a nicer API (the
+calculations do no change however). It also exposes the Moon's ecliptic
+longitude, ecliptic latitude, and parallax, and the Sun's ecliptic
+longitude. All four of them are calculated in the original, but the
+values are never used.
+
+The Rust version will probably get some additional features in the
+future.
 
 ### And Also
 

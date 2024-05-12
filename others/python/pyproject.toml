@@ -1,0 +1,44 @@
+[project]
+name = "moon"
+version = "0.1.0"
+authors = [
+    { name="Quentin Richert", email="noreply@richert.co" },
+]
+description = "John Walker's moontool.c astronomical calculation routines, extracted and ported to Python."
+readme = "../../README.md"
+requires-python = ">= 3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+]
+license = "0BSD"
+keywords = ["moon"]
+
+[project.urls]
+"Homepage" = "https://github.com/qrichert/moontool"
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.docformatter]
+style = "google"
+black = true
+wrap-summaries = 72
+wrap-descriptions = 72
+close-quotes-on-newline = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+
+[tool.coverage.report]
+exclude_lines = [
+    # Note: 'pass' should be included, use '...' for stubs.
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "\\.\\.\\.",
+]

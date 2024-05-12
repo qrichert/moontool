@@ -85,7 +85,7 @@ def serve(port: int) -> None:
             url: parse.ParseResult = parse.urlparse(self.path)
             query: dict = parse.parse_qs(url.query)
             if url.path == "/":
-                date_param: list = query.get("date") or query.get("d") or []
+                date_param: list[str] = query.get("date") or query.get("d") or []
                 date: str = date_param[0] if date_param else ""
                 self.index(date)
             else:

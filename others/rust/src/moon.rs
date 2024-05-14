@@ -356,6 +356,14 @@ pub struct MoonPhase {
     /// The _ecliptic_ (or _ecliptic plane_) is the orbital plane of Earth
     /// around the Sun. Its direction (0°) is towards the March (vernal)
     /// equinox.
+    ///
+    /// > By definition, the times of New Moon, First Quarter, Full
+    /// > Moon, and Last Quarter are the times at which the excess of
+    /// > the apparent geocentric longitude of the Moon over the
+    /// > apparent geocentric longitude of the Sun is 0°, 90°, 180°, and
+    /// > 270° respectively.
+    /// >
+    /// > — Jean Meeus, Astronomical Algorithms, Chapter 49
     pub ecliptic_longitude: f64,
     /// Angular distance from the geocentric ecliptic towards the North
     /// (positive) or South (negative) ecliptic pole (β).
@@ -365,14 +373,6 @@ pub struct MoonPhase {
     /// The _ecliptic_ (or _ecliptic plane_) is the orbital plane of Earth
     /// around the Sun. Its direction (0°) is towards the March (vernal)
     /// equinox.
-    ///
-    /// > By definition, the times of New Moon, First Quarter, Full
-    /// > Moon, and Last Quarter are the times at which the excess of
-    /// > the apparent geocentric longitude of the Moon over the
-    /// > apparent geocentric longitude of the Sun is 0°, 90°, 180°, and
-    /// > 270° respectively.
-    /// >
-    /// > — Jean Meeus, Astronomical Algorithms, Chapter 49
     pub ecliptic_latitude: f64,
     pub parallax: f64,
     pub distance_to_earth_km: f64,

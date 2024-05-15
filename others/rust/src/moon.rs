@@ -244,6 +244,14 @@ pub struct UTCDateTime {
     pub second: u32,
 }
 
+impl UTCDateTime {
+    #[cfg(not(tarpaulin_include))]
+    #[must_use]
+    pub fn now() -> Self {
+        utcdatetime_now()
+    }
+}
+
 impl From<(i32, u32, u32, u32, u32, u32, u32)> for UTCDateTime {
     fn from(ymddhms: (i32, u32, u32, u32, u32, u32, u32)) -> Self {
         let (year, month, day, weekday, hour, minute, second) = ymddhms;

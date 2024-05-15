@@ -3,59 +3,91 @@
 use moontool::moon::{MoonCalendar, MoonPhase, UTCDateTime};
 use std::{env, process};
 
+#[derive(Debug, Eq, PartialEq)]
+struct Config {
+    datetime: Option<String>,
+    help: bool,
+}
+
+impl Config {
+    fn new(args: impl Iterator<Item = String>) -> Result<Self, String> {
+        let mut config = Self {
+            datetime: None,
+            help: false,
+        };
+
+        for arg in args.skip(1) {
+            if arg == "-h" || arg == "--help" {
+                config.help = true;
+                continue;
+            }
+
+            if arg.starts_with("--") || arg.starts_with('-') && arg.parse::<i64>().is_err() {
+                return Err(format!("Unknown argument '{arg}'."));
+            }
+
+            // Silently ignore extra datetime arguments.
+            if config.datetime.is_none() {
+                config.datetime = Some(arg);
+            }
+        }
+
+        Ok(config)
+    }
+}
+
 #[cfg(not(tarpaulin_include))]
 fn main() {
-    let mut args = env::args().skip(1);
-
-    let Some(arg) = args.next() else {
-        for_now();
-        return;
-    };
+    let config = Config::new(env::args()).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        process::exit(2);
+    });
 
     // TODO: --json, --pretty
-    if arg == "--help" || arg == "-h" {
-        print_help();
+    if config.help {
+        println!("{}", help_message());
         return;
     }
 
-    let datetime = if let Some(datetime) = try_from_timestamp(&arg) {
-        datetime
-    } else if let Some(datetime) = try_from_datetime(&arg) {
-        datetime
+    let datetime = if let Some(ref datetime) = config.datetime {
+        try_parse_datetime(datetime)
     } else {
+        Some(get_now())
+    };
+
+    let Some(datetime) = datetime else {
         eprintln!("Error reading date and time from input.");
         process::exit(2);
     };
 
-    for_custom_datetime(&datetime);
+    for_datetime(&datetime);
+}
+
+fn help_message() -> String {
+    format!(
+        "\
+usage: {bin} [-h] [] [DATETIME] [±TIMESTAMP]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  []                    without arguments, defaults to now
+  [DATETIME]            local datetime (e.g., 1994-12-22T14:53:34+01:00)
+  [±TIMESTAMP]          Unix timestamp (e.g., 788104414)",
+        bin = env!("CARGO_BIN_NAME")
+    )
 }
 
 #[cfg(not(tarpaulin_include))]
-fn print_help() {
-    println!("usage: moontool [-h] [] [DATETIME] [±TIMESTAMP]\n");
-    println!("optional arguments:");
-    println!("  -h, --help            show this help message and exit");
-    println!("  []                    without arguments, defaults to now");
-    println!("  [DATETIME]            local datetime (e.g., 1994-12-22T14:53:34+01:00)");
-    println!("  [±TIMESTAMP]          Unix timestamp (e.g., 788104414)");
+fn get_now() -> UTCDateTime {
+    UTCDateTime::now()
 }
 
-#[cfg(not(tarpaulin_include))]
-fn for_now() {
-    println!("\n{}\n", MoonPhase::now());
-
-    if let Ok(mcal) = MoonCalendar::now() {
-        println!("{mcal}\n");
+fn try_parse_datetime(datetime: &str) -> Option<UTCDateTime> {
+    if let Some(datetime) = try_from_timestamp(datetime) {
+        Some(datetime)
+    } else {
+        try_from_datetime(datetime)
     }
-}
-
-#[cfg(not(tarpaulin_include))]
-fn for_custom_datetime(datetime: &UTCDateTime) {
-    println!("\n{}\n", MoonPhase::for_datetime(datetime));
-
-    if let Ok(mcal) = MoonCalendar::for_datetime(datetime) {
-        println!("{mcal}\n");
-    };
 }
 
 fn try_from_timestamp(timestamp: &str) -> Option<UTCDateTime> {
@@ -69,9 +101,144 @@ fn try_from_datetime(datetime: &str) -> Option<UTCDateTime> {
     UTCDateTime::try_from(datetime).ok()
 }
 
+#[cfg(not(tarpaulin_include))]
+fn for_datetime(datetime: &UTCDateTime) {
+    let mphase = MoonPhase::for_datetime(datetime);
+    let mcal = MoonCalendar::for_datetime(datetime);
+
+    println!("\n{mphase}\n");
+    if let Ok(mcal) = mcal {
+        println!("{mcal}\n");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Config.
+
+    #[test]
+    fn no_arguments() {
+        let args = vec![String::new()].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert_eq!(
+            config,
+            Config {
+                datetime: None,
+                help: false,
+            }
+        );
+    }
+
+    #[test]
+    fn no_arguments_and_no_executable() {
+        let args = vec![].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert_eq!(
+            config,
+            Config {
+                datetime: None,
+                help: false,
+            }
+        );
+    }
+
+    #[test]
+    fn help_full() {
+        let args = vec![String::new(), String::from("--help")].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert!(config.help);
+    }
+
+    #[test]
+    fn help_short() {
+        let args = vec![String::new(), String::from("-h")].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert!(config.help);
+    }
+
+    #[test]
+    fn help_message_contains_options() {
+        let message = help_message();
+
+        dbg!(&message);
+        assert!(message.contains("-h, --help"));
+        assert!(message.contains("[DATETIME]"));
+        assert!(message.contains("[±TIMESTAMP]"));
+    }
+
+    #[test]
+    fn datetime() {
+        let args = vec![String::new(), String::from("2024-10-13")].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert_eq!(config.datetime, Some(String::from("2024-10-13")));
+    }
+
+    #[test]
+    fn timestamp() {
+        let args = vec![String::new(), String::from("1715791943")].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert_eq!(config.datetime, Some(String::from("1715791943")));
+    }
+
+    #[test]
+    fn timestamp_negative() {
+        // Because it could be mistaken for an argument.
+        let args = vec![String::new(), String::from("-1715791943")].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert_eq!(config.datetime, Some(String::from("-1715791943")));
+    }
+
+    #[test]
+    fn error_invalid_argument_full() {
+        // Because it could be mistaken for an argument.
+        let args = vec![String::new(), String::from("--invalid")].into_iter();
+        let config = Config::new(args);
+
+        assert!(config.is_err());
+        assert!(config.err().unwrap().contains("'--invalid'"));
+    }
+
+    #[test]
+    fn error_invalid_argument_short() {
+        // Because it could be mistaken for an argument.
+        let args = vec![String::new(), String::from("-i")].into_iter();
+        let config = Config::new(args);
+
+        assert!(config.is_err());
+        assert!(config.err().unwrap().contains("'-i'"));
+    }
+
+    // Main.
+
+    #[test]
+    fn try_parse_datetime_timestamp() {
+        let dt = try_parse_datetime("966600000").unwrap();
+
+        assert_eq!(dt, UTCDateTime::from((2000, 8, 18, 5, 12, 0, 0)));
+    }
+
+    #[test]
+    fn try_parse_datetime_datetime() {
+        let dt = try_parse_datetime("1964-12-20T04:35:00Z").unwrap();
+
+        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+    }
+
+    #[test]
+    fn try_parse_datetime_error() {
+        let dt = try_parse_datetime("invalid");
+
+        assert!(dt.is_none());
+    }
 
     #[test]
     fn try_from_timestamp_positive() {

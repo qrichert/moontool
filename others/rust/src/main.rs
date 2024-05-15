@@ -7,6 +7,7 @@ use std::{env, process};
 struct Config {
     datetime: Option<String>,
     help: bool,
+    version: bool,
 }
 
 impl Config {
@@ -14,11 +15,17 @@ impl Config {
         let mut config = Self {
             datetime: None,
             help: false,
+            version: false,
         };
 
         for arg in args.skip(1) {
             if arg == "-h" || arg == "--help" {
                 config.help = true;
+                continue;
+            }
+
+            if arg == "-v" || arg == "--version" {
+                config.version = true;
                 continue;
             }
 
@@ -48,6 +55,10 @@ fn main() {
         println!("{}", help_message());
         return;
     }
+    if config.version {
+        println!("{}", version_message());
+        return;
+    }
 
     let datetime = if let Some(ref datetime) = config.datetime {
         try_parse_datetime(datetime)
@@ -70,11 +81,16 @@ usage: {bin} [-h] [] [DATETIME] [±TIMESTAMP]
 
 optional arguments:
   -h, --help            show this help message and exit
+  -v, --version         show the version and exit
   []                    without arguments, defaults to now
   [DATETIME]            local datetime (e.g., 1994-12-22T14:53:34+01:00)
   [±TIMESTAMP]          Unix timestamp (e.g., 788104414)",
         bin = env!("CARGO_BIN_NAME")
     )
+}
+
+fn version_message() -> String {
+    format!("{} {}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"))
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -128,6 +144,7 @@ mod tests {
             Config {
                 datetime: None,
                 help: false,
+                version: false,
             }
         );
     }
@@ -142,6 +159,7 @@ mod tests {
             Config {
                 datetime: None,
                 help: false,
+                version: false,
             }
         );
     }
@@ -168,8 +186,34 @@ mod tests {
 
         dbg!(&message);
         assert!(message.contains("-h, --help"));
+        assert!(message.contains("-v, --version"));
         assert!(message.contains("[DATETIME]"));
         assert!(message.contains("[±TIMESTAMP]"));
+    }
+
+    #[test]
+    fn version_full() {
+        let args = vec![String::new(), String::from("--version")].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert!(config.version);
+    }
+
+    #[test]
+    fn version_short() {
+        let args = vec![String::new(), String::from("-v")].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert!(config.version);
+    }
+
+    #[test]
+    fn version_message_contains_binary_name_and_version() {
+        let message = version_message();
+
+        dbg!(&message);
+        assert!(message.contains(env!("CARGO_BIN_NAME")));
+        assert!(message.contains(env!("CARGO_PKG_VERSION")));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 [package]
 name = "moontool"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Quentin Richert <noreply@richert.co>"]
 description = "John Walker's moontool.c astronomical calculation routines, extracted and ported to Rust."

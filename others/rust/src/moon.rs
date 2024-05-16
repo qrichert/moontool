@@ -171,6 +171,22 @@ fn parse_date(date: &str) -> Result<time::OffsetDateTime, ()> {
     Ok(time::OffsetDateTime::new_utc(date, time::Time::MIDNIGHT))
 }
 
+fn weekday_for_ymdhms(ymdhms: (i32, u32, u32, u32, u32, u32)) -> Result<u32, ()> {
+    let (year, month, day, hour, minute, second) = ymdhms;
+    let Ok(datetime) = utcdatetime_to_offsetdatetime(&UTCDateTime {
+        year,
+        month,
+        day,
+        weekday: 99,
+        hour,
+        minute,
+        second,
+    }) else {
+        return Err(());
+    };
+    Ok(u32::from(datetime.weekday().number_days_from_sunday()))
+}
+
 #[cfg(not(tarpaulin_include))]
 fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime, ()> {
     let Ok(utc) = utcdatetime_to_offsetdatetime(datetime) else {
@@ -237,7 +253,11 @@ macro_rules! write_to {
 // Custom API
 
 /// Internal date and time representation.
-/// This way, we don't force a time-crate dependency onto the user.
+///
+/// This is not really meant to be created by the user. Its main purpose
+/// is to be part of return values from library functions—though there
+/// are scenarios where it _can_ be useful to create a `UTCDateTime`
+/// manually.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UTCDateTime {
     pub year: i32,
@@ -245,12 +265,6 @@ pub struct UTCDateTime {
     pub month: u32,
     /// `[1;31]`
     pub day: u32,
-    // TODO: This is only used for display?
-    //  - Make it private
-    //  - Make it RefCell<Option<u32>>
-    //  - Add weekday() method
-    //  - If Some(weekday) -> return
-    //  - Else compute and store
     /// `[0 = Sunday, 6 = Saturday]`
     pub weekday: u32,
     /// `[0;23]`
@@ -266,6 +280,25 @@ impl UTCDateTime {
     #[must_use]
     pub fn now() -> Self {
         utcdatetime_now()
+    }
+}
+
+impl From<(i32, u32, u32, u32, u32, u32)> for UTCDateTime {
+    /// # Errors
+    ///
+    /// If weekday cannot be determined, it will be set to 99.
+    fn from(ymdhms: (i32, u32, u32, u32, u32, u32)) -> Self {
+        let (year, month, day, hour, minute, second) = ymdhms;
+        let weekday = weekday_for_ymdhms(ymdhms).unwrap_or(99);
+        Self {
+            year,
+            month,
+            day,
+            weekday,
+            hour,
+            minute,
+            second,
+        }
     }
 }
 
@@ -1312,22 +1345,21 @@ mod tests {
 
     #[test]
     fn utcdatetime_to_timestamp_regular() {
-        let t =
-            utcdatetime_to_timestamp(&UTCDateTime::from((2024, 4, 30, 99, 18, 21, 42))).unwrap();
+        let t = utcdatetime_to_timestamp(&UTCDateTime::from((2024, 4, 30, 18, 21, 42))).unwrap();
 
         assert_eq!(t, 1_714_501_302);
     }
 
     #[test]
     fn utcdatetime_to_timestamp_zero() {
-        let t = utcdatetime_to_timestamp(&UTCDateTime::from((1970, 1, 1, 99, 0, 0, 0))).unwrap();
+        let t = utcdatetime_to_timestamp(&UTCDateTime::from((1970, 1, 1, 0, 0, 0))).unwrap();
 
         assert_eq!(t, 0);
     }
 
     #[test]
     fn utcdatetime_to_timestamp_negative() {
-        let t = utcdatetime_to_timestamp(&UTCDateTime::from((1940, 10, 13, 99, 0, 0, 0))).unwrap();
+        let t = utcdatetime_to_timestamp(&UTCDateTime::from((1940, 10, 13, 0, 0, 0))).unwrap();
 
         assert_eq!(t, -922_060_800);
     }
@@ -1410,6 +1442,24 @@ mod tests {
     }
 
     #[test]
+    fn weekday_for_ymdhms_regular() {
+        assert_eq!(weekday_for_ymdhms((2024, 5, 13, 20, 47, 23)).unwrap(), 1); // Monday
+        assert_eq!(weekday_for_ymdhms((2024, 5, 14, 20, 47, 23)).unwrap(), 2); // Tuesday
+        assert_eq!(weekday_for_ymdhms((2024, 5, 15, 20, 47, 23)).unwrap(), 3); // Wednesday
+        assert_eq!(weekday_for_ymdhms((2024, 5, 16, 20, 47, 23)).unwrap(), 4); // Thursday
+        assert_eq!(weekday_for_ymdhms((2024, 5, 17, 20, 47, 23)).unwrap(), 5); // Friday
+        assert_eq!(weekday_for_ymdhms((2024, 5, 18, 20, 47, 23)).unwrap(), 6); // Saturday
+        assert_eq!(weekday_for_ymdhms((2024, 5, 19, 20, 47, 23)).unwrap(), 0); // Sunday
+    }
+
+    #[test]
+    fn weekday_for_ymdhms_error() {
+        let weekday = weekday_for_ymdhms((2024, 5, 99, 20, 47, 23));
+
+        assert!(weekday.is_err());
+    }
+
+    #[test]
     fn utcdatetime_to_offsetdatetime_regular() {
         let odt =
             utcdatetime_to_offsetdatetime(&UTCDateTime::from((1938, 7, 15, 5, 0, 0, 0))).unwrap();
@@ -1467,15 +1517,16 @@ mod tests {
             minute: 10,
             second: 0,
         };
-        let b = UTCDateTime::from((1968, 2, 27, 2, 9, 10, 0));
-        let c = UTCDateTime::try_from("1968-02-27T09:10:00Z").unwrap();
-        let d = UTCDateTime::from(time::OffsetDateTime::new_utc(
+        let b = UTCDateTime::from((1968, 2, 27, 9, 10, 0));
+        let c = UTCDateTime::from((1968, 2, 27, 2, 9, 10, 0));
+        let d = UTCDateTime::try_from("1968-02-27T09:10:00Z").unwrap();
+        let e = UTCDateTime::from(time::OffsetDateTime::new_utc(
             time::Date::from_calendar_date(1968, time::Month::February, 27).unwrap(),
             time::Time::from_hms(9, 10, 0).unwrap(),
         ));
-        let e = UTCDateTime::try_from(-58_200_600).unwrap();
+        let f = UTCDateTime::try_from(-58_200_600).unwrap();
 
-        assert!([b, c, d, e].iter().all(|x| *x == a));
+        assert!([b, c, d, e, f].iter().all(|x| *x == a));
     }
 
     #[test]
@@ -1494,8 +1545,8 @@ mod tests {
 
     #[test]
     fn every_way_of_creating_moonphase_gives_same_result() {
-        let a = moonphase(&UTCDateTime::from((1968, 2, 27, 99, 9, 10, 0)));
-        let b = MoonPhase::for_datetime(&UTCDateTime::from((1968, 2, 27, 99, 9, 10, 0)));
+        let a = moonphase(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
+        let b = MoonPhase::for_datetime(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
         let c = MoonPhase::for_ymdhms(1968, 2, 27, 9, 10, 0);
         let d = MoonPhase::for_timestamp(-58_200_600).unwrap();
 
@@ -1504,7 +1555,7 @@ mod tests {
 
     #[test]
     fn moonphase_regular() {
-        let mut mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+        let mut mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
 
         // This value is slightly different across systems.
         // To simplify testing, we assert it is OK first, and then
@@ -1547,7 +1598,7 @@ mod tests {
 
     #[test]
     fn moonphase_display() {
-        let mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+        let mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
 
         // The testing environment is considered "unsound" by time-rs,
         // which then errors on anything local-time related. This is why
@@ -1579,7 +1630,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn moonphase_to_json() {
-        let mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+        let mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
 
         let mut json = mphase.to_json();
 
@@ -1598,7 +1649,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn moonphase_to_json_timestamp_error() {
-        let mut mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+        let mut mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
         mphase.timestamp = None;
 
         assert!(mphase.to_json().contains(r#""timestamp":null,"#));
@@ -1606,9 +1657,8 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn every_way_of_creating_mooncalendar_gives_same_result() {
-        let a = mooncal(&UTCDateTime::from((1968, 2, 27, 99, 9, 10, 0))).unwrap();
-        let b =
-            MoonCalendar::for_datetime(&UTCDateTime::from((1968, 2, 27, 99, 9, 10, 0))).unwrap();
+        let a = mooncal(&UTCDateTime::from((1968, 2, 27, 9, 10, 0))).unwrap();
+        let b = MoonCalendar::for_datetime(&UTCDateTime::from((1968, 2, 27, 9, 10, 0))).unwrap();
         let c = MoonCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0).unwrap();
         let d = MoonCalendar::for_timestamp(-58_200_600).unwrap();
 
@@ -1617,7 +1667,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn mooncalendar_regular() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0))).unwrap();
+        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0))).unwrap();
 
         assert_eq!(
             mcal,
@@ -1646,7 +1696,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn mooncalendar_display() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0))).unwrap();
+        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0))).unwrap();
 
         assert_eq!(
             mcal.to_string(),
@@ -1665,7 +1715,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn mooncalendar_to_json() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0))).unwrap();
+        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0))).unwrap();
 
         assert_eq!(
             mcal.to_json(),
@@ -1816,28 +1866,28 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn jtime_regular() {
-        let jd = jtime(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+        let jd = jtime(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
 
         assert_almost_eq!(jd, 2_449_787.569_444_444_5);
     }
 
     #[test]
     fn jtime_january() {
-        let jd = jtime(&UTCDateTime::from((1995, 1, 1, 99, 0, 0, 0)));
+        let jd = jtime(&UTCDateTime::from((1995, 1, 1, 0, 0, 0)));
 
         assert_almost_eq!(jd, 2_449_718.5);
     }
 
     #[test]
     fn jtime_zero() {
-        let jd = jtime(&UTCDateTime::from((-4712, 1, 1, 99, 12, 0, 0)));
+        let jd = jtime(&UTCDateTime::from((-4712, 1, 1, 12, 0, 0)));
 
         assert_almost_eq!(jd, 0.0);
     }
 
     #[test]
     fn jtime_negative() {
-        let jd = jtime(&UTCDateTime::from((-8000, 1, 1, 99, 0, 0, 0)));
+        let jd = jtime(&UTCDateTime::from((-8000, 1, 1, 0, 0, 0)));
 
         assert_almost_eq!(jd, -1_200_941.5);
     }

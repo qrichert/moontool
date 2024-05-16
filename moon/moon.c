@@ -192,7 +192,7 @@ int moonphase(MoonPhase *mphase, const time_t *timestamp)
     p = phase(jd, &cphase, &aom, &cdist, &cangdia, &csund, &csuang);
 
     mphase->julian_date = jd;
-    mphase->utc_timestamp = (time_t) t;
+    mphase->timestamp = (time_t) t;
     tmcpy(&mphase->utc_datetime, gm);
     mphase->age = aom;
     mphase->fraction_of_lunation = p;
@@ -263,7 +263,7 @@ static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf)
         moname[gm->tm_mon],
         gm->tm_year + 1900
     );
-    gm = localtime(&mphase->utc_timestamp);
+    gm = localtime(&mphase->timestamp);
     offset += sprintf(
         buf + offset,
         "Local time:\t\t%-9s %2d:%02d:%02d %2d %-5s %d\n\n",
@@ -336,7 +336,7 @@ void print_moonphase_debug(const MoonPhase* mphase)
 
     printf("MoonPhase {\n");
     printf("    julian_date: %f,\n", mphase->julian_date);
-    printf("    utc_timestamp: %ld,\n", mphase->utc_timestamp);
+    printf("    timestamp: %ld,\n", mphase->timestamp);
     printf("    utc_datetime: %s\n", utc_datetime);
     printf("    age: %f,\n", mphase->age);
     printf("    fraction_of_lunation: %f,\n", mphase->fraction_of_lunation);

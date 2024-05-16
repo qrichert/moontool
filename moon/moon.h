@@ -27,7 +27,7 @@ extern "C" {
  */
 typedef struct {
     double julian_date;
-    time_t utc_timestamp;
+    time_t timestamp;
     struct tm utc_datetime;
     double age;
     double fraction_of_lunation;

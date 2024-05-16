@@ -139,7 +139,7 @@ class MoonPhase:
     """
 
     julian_date: float
-    utc_timestamp: int
+    timestamp: int
     utc_datetime: dt.datetime
     age: float
     fraction_of_lunation: float
@@ -338,7 +338,7 @@ def moonphase(gm: dt.datetime) -> MoonPhase:
     phase_fraction: int = fraction_of_lunation_to_phase(p)
     mphase: MoonPhase = MoonPhase(
         julian_date=jd,
-        utc_timestamp=int(gm.timestamp()),
+        timestamp=int(gm.timestamp()),
         utc_datetime=gm,
         age=phase_info["age"],
         fraction_of_lunation=p,

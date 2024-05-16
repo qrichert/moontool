@@ -96,7 +96,7 @@ class TestCustomAPI(unittest.TestCase):
             mphase,
             MoonPhase(
                 julian_date=2449787.5694444445,
-                utc_timestamp=794886000,
+                timestamp=794886000,
                 utc_datetime=dt.datetime(1995, 3, 11, 1, 40, 0, tzinfo=dt.UTC),
                 age=8.861826144635483,
                 fraction_of_lunation=0.3000897219037586,

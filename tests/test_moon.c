@@ -114,7 +114,7 @@ void test_moonphase_regular(void) {
     moonphase(&mphase, &timestamp);
 
     assert_almost_equal(mphase.julian_date, 2449787.5694444445);
-    assert_almost_equal(mphase.utc_timestamp, 794886000);
+    assert_almost_equal(mphase.timestamp, 794886000);
 
     assert(mphase.utc_datetime.tm_year == 95);
     assert(mphase.utc_datetime.tm_mon == 2);

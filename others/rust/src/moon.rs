@@ -351,7 +351,7 @@ struct PhaseInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MoonPhase {
     pub julian_date: f64,
-    pub utc_timestamp: Option<i64>,
+    pub timestamp: Option<i64>,
     pub utc_datetime: UTCDateTime,
     pub age: f64,
     pub fraction_of_lunation: f64,
@@ -701,7 +701,7 @@ fn moonphase(gm: &UTCDateTime) -> MoonPhase {
 
     MoonPhase {
         julian_date: jd,
-        utc_timestamp: utcdatetime_to_timestamp(&gm).ok(),
+        timestamp: utcdatetime_to_timestamp(&gm).ok(),
         utc_datetime: gm,
         age: phase_info.age,
         fraction_of_lunation: phase_info.phase,
@@ -1371,7 +1371,7 @@ mod tests {
             mphase,
             MoonPhase {
                 julian_date: 2_449_787.569_444_444_5,
-                utc_timestamp: Some(794_886_000),
+                timestamp: Some(794_886_000),
                 utc_datetime: UTCDateTime::from((1995, 3, 11, 6, 1, 40, 0)),
                 age: 8.861_826_144_635_483,
                 fraction_of_lunation: 0.300_089_721_903_758_6,

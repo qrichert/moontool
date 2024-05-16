@@ -194,7 +194,6 @@ int moonphase(MoonPhase *mphase, const time_t *timestamp)
     mphase->julian_date = jd;
     mphase->utc_timestamp = (time_t) t;
     tmcpy(&mphase->utc_datetime, gm);
-    mphase->utc_datetime.tm_zone = NULL;  // Pointer to static memory.
     mphase->age = aom;
     mphase->fraction_of_lunation = p;
     mphase->phase = fraction_of_lunation_to_phase(p);

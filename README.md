@@ -31,12 +31,12 @@ In Walker's words:
 To use the astronomical calculation routines, include `moon.h` and link
 against C's standard math library (`-lm`).
 
-It is C code, but can be used as-is in C++ projects[^1].
+It is C code, but can be used as-is in C++ projects[^cpp].
 
 If in doubt, take a look at how the CLI is built in the
 [`Makefile`](./Makefile).
 
-[^1]:
+[^cpp]:
     A C++ version of the CLI is available at
     [2df0bde](https://github.com/qrichert/moontool/blob/2df0bdef6d898bff955ea360075c20900af4c025/main.cpp).
 
@@ -45,7 +45,11 @@ If in doubt, take a look at how the CLI is built in the
 This version includes functions that print out info about the Moon, in a
 way similar to the original program.
 
-The CLI wraps these functions.
+The CLI wraps these functions[^cli].
+
+[^cli]:
+    The C version of the CLI is a demo more than anything. The
+    [Rust version](#ports-to-other-languages) has more functionality.
 
 Run `make` and execute the resulting `moontool` program in the `build/`
 directory.

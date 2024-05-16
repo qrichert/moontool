@@ -11,7 +11,7 @@
     clippy::many_single_char_names
 )]
 
-use std::fmt;
+use std::{fmt, fmt::Write};
 
 //  Astronomical constants
 
@@ -223,6 +223,17 @@ fn offsetdatetime_to_utcdatetime(datetime: &time::OffsetDateTime) -> UTCDateTime
     }
 }
 
+pub trait ToJSON {
+    fn to_json(&self) -> String;
+}
+
+/// Helper to `write!()` to a string with auto-`unwrap()`.
+macro_rules! write_to {
+    ($target:ident, $string:literal $(, $value:expr)*) => {
+        write!($target, $string $(, $value)*).unwrap_or(());
+    };
+}
+
 // Custom API
 
 /// Internal date and time representation.
@@ -234,6 +245,12 @@ pub struct UTCDateTime {
     pub month: u32,
     /// `[1;31]`
     pub day: u32,
+    // TODO: This is only used for display?
+    //  - Make it private
+    //  - Make it RefCell<Option<u32>>
+    //  - Add weekday() method
+    //  - If Some(weekday) -> return
+    //  - Else compute and store
     /// `[0 = Sunday, 6 = Saturday]`
     pub weekday: u32,
     /// `[0;23]`
@@ -292,6 +309,16 @@ impl TryFrom<i64> for UTCDateTime {
             return Err("Timestamp is out of range.");
         };
         Ok(dt)
+    }
+}
+
+impl fmt::Display for UTCDateTime {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:0>4}-{:0>2}-{:0>2}T{:0>2}:{:0>2}:{:0>2}Z",
+            self.year, self.month, self.day, self.hour, self.minute, self.second
+        )
     }
 }
 
@@ -410,6 +437,46 @@ pub struct MoonPhase {
     pub sun_subtends: f64,
 }
 
+impl MoonPhase {
+    #[must_use]
+    pub fn for_datetime(datetime: &UTCDateTime) -> Self {
+        moonphase(datetime)
+    }
+
+    #[must_use]
+    pub fn for_ymdhms(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        minute: u32,
+        second: u32,
+    ) -> Self {
+        Self::for_datetime(&UTCDateTime {
+            year,
+            month,
+            day,
+            weekday: 99, // This is fine, it's not used in calculations.
+            hour,
+            minute,
+            second,
+        })
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+        let datetime = UTCDateTime::try_from(timestamp)?;
+        Ok(Self::for_datetime(&datetime))
+    }
+
+    #[cfg(not(tarpaulin_include))]
+    #[must_use]
+    pub fn now() -> Self {
+        let now = UTCDateTime::now();
+        Self::for_datetime(&now)
+    }
+}
+
 impl fmt::Display for MoonPhase {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let aom = &self.age;
@@ -493,43 +560,68 @@ impl fmt::Display for MoonPhase {
     }
 }
 
-impl MoonPhase {
-    #[must_use]
-    pub fn for_datetime(datetime: &UTCDateTime) -> Self {
-        moonphase(datetime)
-    }
-
-    #[must_use]
-    pub fn for_ymdhms(
-        year: i32,
-        month: u32,
-        day: u32,
-        hour: u32,
-        minute: u32,
-        second: u32,
-    ) -> Self {
-        Self::for_datetime(&UTCDateTime {
-            year,
-            month,
-            day,
-            weekday: 99, // This is fine, it's not used in calculations.
-            hour,
-            minute,
-            second,
-        })
-    }
-
-    #[allow(clippy::missing_errors_doc)]
-    pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
-        let datetime = UTCDateTime::try_from(timestamp)?;
-        Ok(Self::for_datetime(&datetime))
-    }
-
-    #[cfg(not(tarpaulin_include))]
-    #[must_use]
-    pub fn now() -> Self {
-        let now = utcdatetime_now();
-        Self::for_datetime(&now)
+impl ToJSON for MoonPhase {
+    fn to_json(&self) -> String {
+        let mut json = String::new();
+        write_to!(json, "{{");
+        write_to!(json, r#""julian_date":{},"#, self.julian_date);
+        write_to!(
+            json,
+            r#""timestamp":{},"#,
+            self.timestamp
+                .map_or_else(|| String::from("null"), |v| v.to_string())
+        );
+        write_to!(
+            json,
+            r#""utc_datetime":"{}","#,
+            self.utc_datetime.to_string()
+        );
+        write_to!(json, r#""age":{},"#, self.age);
+        write_to!(
+            json,
+            r#""fraction_of_lunation":{},"#,
+            self.fraction_of_lunation
+        );
+        write_to!(json, r#""phase":{},"#, self.phase);
+        write_to!(json, r#""phase_name":"{}","#, self.phase_name);
+        write_to!(json, r#""phase_icon":"{}","#, self.phase_icon);
+        write_to!(
+            json,
+            r#""fraction_illuminated":{},"#,
+            self.fraction_illuminated
+        );
+        write_to!(json, r#""ecliptic_longitude":{},"#, self.ecliptic_longitude);
+        write_to!(json, r#""ecliptic_latitude":{},"#, self.ecliptic_latitude);
+        write_to!(json, r#""parallax":{},"#, self.parallax);
+        write_to!(
+            json,
+            r#""distance_to_earth_km":{},"#,
+            self.distance_to_earth_km
+        );
+        write_to!(
+            json,
+            r#""distance_to_earth_earth_radii":{},"#,
+            self.distance_to_earth_earth_radii
+        );
+        write_to!(json, r#""subtends":{},"#, self.subtends);
+        write_to!(
+            json,
+            r#""sun_ecliptic_longitude":{},"#,
+            self.sun_ecliptic_longitude
+        );
+        write_to!(
+            json,
+            r#""sun_distance_to_earth_km":{},"#,
+            self.sun_distance_to_earth_km
+        );
+        write_to!(
+            json,
+            r#""sun_distance_to_earth_astronomical_units":{},"#,
+            self.sun_distance_to_earth_astronomical_units
+        );
+        write_to!(json, r#""sun_subtends":{}"#, self.sun_subtends);
+        write_to!(json, "}}");
+        json
     }
 }
 
@@ -576,35 +668,6 @@ pub struct MoonCalendar {
     pub next_new_moon_utc: UTCDateTime,
 }
 
-impl fmt::Display for MoonCalendar {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Moon Calendar\n=============\n")?;
-        writeln!(
-            f,
-            "Last new moon:\t\t{}\tLunation: {}",
-            fmt_phase_time(&self.last_new_moon_utc),
-            self.lunation
-        )?;
-        writeln!(
-            f,
-            "First quarter:\t\t{}",
-            fmt_phase_time(&self.first_quarter_utc)
-        )?;
-        writeln!(f, "Full moon:\t\t{}", fmt_phase_time(&self.full_moon_utc))?;
-        writeln!(
-            f,
-            "Last quarter:\t\t{}",
-            fmt_phase_time(&self.last_quarter_utc)
-        )?;
-        write!(
-            f,
-            "Next new moon:\t\t{}\tLunation: {}",
-            fmt_phase_time(&self.next_new_moon_utc),
-            self.lunation + 1
-        )
-    }
-}
-
 // Global explanation in `struct MoonCalendar`'s docstring.
 #[allow(clippy::missing_errors_doc)]
 impl MoonCalendar {
@@ -638,7 +701,7 @@ impl MoonCalendar {
 
     #[cfg(not(tarpaulin_include))]
     pub fn now() -> Result<Self, &'static str> {
-        let now = utcdatetime_now();
+        let now = UTCDateTime::now();
         Self::for_datetime(&now)
     }
 
@@ -649,6 +712,75 @@ impl MoonCalendar {
     //
     // TODO: Equinoxes (EquinoxCalendar, for Harvest Moon)
     //  "Algorithm as given in Meeus, Astronomical Algorithms, Chapter 27, page 177"
+}
+
+impl fmt::Display for MoonCalendar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Moon Calendar\n=============\n")?;
+        writeln!(
+            f,
+            "Last new moon:\t\t{}\tLunation: {}",
+            fmt_phase_time(&self.last_new_moon_utc),
+            self.lunation
+        )?;
+        writeln!(
+            f,
+            "First quarter:\t\t{}",
+            fmt_phase_time(&self.first_quarter_utc)
+        )?;
+        writeln!(f, "Full moon:\t\t{}", fmt_phase_time(&self.full_moon_utc))?;
+        writeln!(
+            f,
+            "Last quarter:\t\t{}",
+            fmt_phase_time(&self.last_quarter_utc)
+        )?;
+        write!(
+            f,
+            "Next new moon:\t\t{}\tLunation: {}",
+            fmt_phase_time(&self.next_new_moon_utc),
+            self.lunation + 1
+        )
+    }
+}
+
+impl ToJSON for MoonCalendar {
+    fn to_json(&self) -> String {
+        let mut json = String::new();
+        write_to!(json, "{{");
+        write_to!(json, r#""lunation":{},"#, self.lunation);
+        write_to!(json, r#""last_new_moon":{},"#, self.last_new_moon);
+        write_to!(
+            json,
+            r#""last_new_moon_utc":"{}","#,
+            self.last_new_moon_utc.to_string()
+        );
+        write_to!(json, r#""first_quarter":{},"#, self.first_quarter);
+        write_to!(
+            json,
+            r#""first_quarter_utc":"{}","#,
+            self.first_quarter_utc.to_string()
+        );
+        write_to!(json, r#""full_moon":{},"#, self.full_moon);
+        write_to!(
+            json,
+            r#""full_moon_utc":"{}","#,
+            self.full_moon_utc.to_string()
+        );
+        write_to!(json, r#""last_quarter":{},"#, self.last_quarter);
+        write_to!(
+            json,
+            r#""last_quarter_utc":"{}","#,
+            self.last_quarter_utc.to_string()
+        );
+        write_to!(json, r#""next_new_moon":{},"#, self.next_new_moon);
+        write_to!(
+            json,
+            r#""next_new_moon_utc":"{}""#,
+            self.next_new_moon_utc.to_string()
+        );
+        write_to!(json, "}}");
+        json
+    }
 }
 
 fn fraction_of_lunation_to_phase(p: f64) -> usize {
@@ -1354,6 +1486,13 @@ mod tests {
     }
 
     #[test]
+    fn utcdatetime_display() {
+        let dt = UTCDateTime::from((1968, 2, 27, 2, 9, 10, 0));
+
+        assert_eq!(dt.to_string(), "1968-02-27T09:10:00Z");
+    }
+
+    #[test]
     fn every_way_of_creating_moonphase_gives_same_result() {
         let a = moonphase(&UTCDateTime::from((1968, 2, 27, 99, 9, 10, 0)));
         let b = MoonPhase::for_datetime(&UTCDateTime::from((1968, 2, 27, 99, 9, 10, 0)));
@@ -1365,7 +1504,13 @@ mod tests {
 
     #[test]
     fn moonphase_regular() {
-        let mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+        let mut mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+
+        // This value is slightly different across systems.
+        // To simplify testing, we assert it is OK first, and then
+        // normalize it.
+        assert!(mphase.ecliptic_latitude.abs() - 5.389_251_414_139_025 <= 0.000_000_000_000_001);
+        mphase.ecliptic_latitude = -5.389_251_414_139_025;
 
         assert_eq!(
             mphase,
@@ -1433,6 +1578,33 @@ Sun subtends:\t\t0.5367 degrees.\
     }
 
     #[test]
+    fn moonphase_to_json() {
+        let mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+
+        let mut json = mphase.to_json();
+
+        // This value is slightly different across systems.
+        // To simplify testing, we normalize it.
+        json = json.replace(
+            r#""ecliptic_latitude":-5.389251414139024,"#,
+            r#""ecliptic_latitude":-5.389251414139025,"#,
+        );
+
+        assert_eq!(
+            json,
+            r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"utc_datetime":"1995-03-11T01:40:00Z","age":8.861826144635483,"fraction_of_lunation":0.3000897219037586,"phase":3,"phase_name":"Waxing Gibbous","phase_icon":"🌔","fraction_illuminated":0.6547765466116484,"ecliptic_longitude":97.95161964049227,"ecliptic_latitude":-5.389251414139025,"parallax":0.9083924050990154,"distance_to_earth_km":402304.145927074,"distance_to_earth_earth_radii":63.07526715025556,"subtends":0.49504376257683796,"sun_ecliptic_longitude":350.01941250623565,"sun_distance_to_earth_km":148602888.21560264,"sun_distance_to_earth_astronomical_units":0.9933447742831822,"sun_subtends":0.5366998587018451}"#,
+        );
+    }
+
+    #[test]
+    fn moonphase_to_json_timestamp_error() {
+        let mut mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0)));
+        mphase.timestamp = None;
+
+        assert!(mphase.to_json().contains(r#""timestamp":null,"#));
+    }
+
+    #[test]
     fn every_way_of_creating_mooncalendar_gives_same_result() {
         let a = mooncal(&UTCDateTime::from((1968, 2, 27, 99, 9, 10, 0))).unwrap();
         let b =
@@ -1488,6 +1660,16 @@ Full moon:\t\tFriday     1:27 UTC 17 March 1995
 Last quarter:\t\tThursday  20:11 UTC 23 March 1995
 Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 "
+        );
+    }
+
+    #[test]
+    fn mooncalendar_to_json() {
+        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 99, 1, 40, 0))).unwrap();
+
+        assert_eq!(
+            mcal.to_json(),
+            r#"{"lunation":893,"last_new_moon":2449777.9930243203,"last_new_moon_utc":"1995-03-01T11:49:57Z","first_quarter":2449785.9259425676,"first_quarter_utc":"1995-03-09T10:13:21Z","full_moon":2449793.5607311586,"full_moon_utc":"1995-03-17T01:27:27Z","last_quarter":2449800.3410721812,"last_quarter_utc":"1995-03-23T20:11:09Z","next_new_moon":2449807.5908233593,"next_new_moon_utc":"1995-03-31T02:10:47Z"}"#,
         );
     }
 

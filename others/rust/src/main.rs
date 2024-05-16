@@ -1,6 +1,6 @@
 //! Command Line Interface for moon.rs.
 
-use moontool::moon::{MoonCalendar, MoonPhase, UTCDateTime};
+use moontool::moon::{MoonCalendar, MoonPhase, ToJSON, UTCDateTime};
 use std::{env, process};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -8,6 +8,7 @@ struct Config {
     datetime: Option<String>,
     help: bool,
     version: bool,
+    json: bool,
 }
 
 impl Config {
@@ -16,6 +17,7 @@ impl Config {
             datetime: None,
             help: false,
             version: false,
+            json: false,
         };
 
         for arg in args.skip(1) {
@@ -26,6 +28,11 @@ impl Config {
 
             if arg == "-v" || arg == "--version" {
                 config.version = true;
+                continue;
+            }
+
+            if arg == "--json" {
+                config.json = true;
                 continue;
             }
 
@@ -50,7 +57,6 @@ fn main() {
         process::exit(2);
     });
 
-    // TODO: --json, --pretty
     if config.help {
         println!("{}", help_message());
         return;
@@ -71,7 +77,7 @@ fn main() {
         process::exit(2);
     };
 
-    for_datetime(&datetime);
+    for_datetime(&datetime, &config);
 }
 
 fn help_message() -> String {
@@ -82,6 +88,7 @@ usage: {bin} [-h] [] [DATETIME] [±TIMESTAMP]
 optional arguments:
   -h, --help            show this help message and exit
   -v, --version         show the version and exit
+  --json                output as json
   []                    without arguments, defaults to now
   [DATETIME]            local datetime (e.g., 1994-12-22T14:53:34+01:00)
   [±TIMESTAMP]          Unix timestamp (e.g., 788104414)",
@@ -118,10 +125,30 @@ fn try_from_datetime(datetime: &str) -> Option<UTCDateTime> {
 }
 
 #[cfg(not(tarpaulin_include))]
-fn for_datetime(datetime: &UTCDateTime) {
+fn for_datetime(datetime: &UTCDateTime, config: &Config) {
     let mphase = MoonPhase::for_datetime(datetime);
     let mcal = MoonCalendar::for_datetime(datetime);
 
+    if config.json {
+        print_json(&mphase, &mcal);
+        return;
+    }
+    print_pretty(&mphase, &mcal);
+}
+
+#[cfg(not(tarpaulin_include))]
+fn print_json(mphase: &MoonPhase, mcal: &Result<MoonCalendar, &'static str>) {
+    let mphase = mphase.to_json();
+    let mcal = if let Ok(mcal) = mcal {
+        mcal.to_json()
+    } else {
+        String::from("{}")
+    };
+    println!(r#"{{"phase":{mphase},"calendar":{mcal}}}"#);
+}
+
+#[cfg(not(tarpaulin_include))]
+fn print_pretty(mphase: &MoonPhase, mcal: &Result<MoonCalendar, &'static str>) {
     println!("\n{mphase}\n");
     if let Ok(mcal) = mcal {
         println!("{mcal}\n");
@@ -145,6 +172,7 @@ mod tests {
                 datetime: None,
                 help: false,
                 version: false,
+                json: false,
             }
         );
     }
@@ -160,6 +188,7 @@ mod tests {
                 datetime: None,
                 help: false,
                 version: false,
+                json: false,
             }
         );
     }
@@ -187,6 +216,7 @@ mod tests {
         dbg!(&message);
         assert!(message.contains("-h, --help"));
         assert!(message.contains("-v, --version"));
+        assert!(message.contains("--json"));
         assert!(message.contains("[DATETIME]"));
         assert!(message.contains("[±TIMESTAMP]"));
     }
@@ -214,6 +244,42 @@ mod tests {
         dbg!(&message);
         assert!(message.contains(env!("CARGO_BIN_NAME")));
         assert!(message.contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    #[test]
+    fn json() {
+        let args = vec![String::new(), String::from("--json")].into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert!(config.json);
+    }
+
+    #[test]
+    fn json_with_datetime_after() {
+        let args = vec![
+            String::new(),
+            String::from("--json"),
+            String::from("2024-05-15"),
+        ]
+        .into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert!(config.json);
+        assert!(config.datetime.is_some());
+    }
+
+    #[test]
+    fn json_with_datetime_before() {
+        let args = vec![
+            String::new(),
+            String::from("2024-05-15"),
+            String::from("--json"),
+        ]
+        .into_iter();
+        let config = Config::new(args).unwrap();
+
+        assert!(config.json);
+        assert!(config.datetime.is_some());
     }
 
     #[test]

@@ -364,21 +364,50 @@ impl fmt::Display for UTCDateTime {
     }
 }
 
+/// Internal local date and time representation.
+///
+/// This is mostly meant to be used for display, or condition behaviour
+/// according to the user's local time. It's just a helper.
+///
+/// # Examples
+///
+/// ```rust
+/// # use moontool::moon::{LocalDateTime, UTCDateTime};
+/// let landing = UTCDateTime::try_from("1969-07-20T20:17:40Z").unwrap();
+///
+/// let (month, day) = LocalDateTime::try_from(&landing).map_or_else(
+///     |()| (landing.month, landing.day), // Fall back to UTC.
+///     |local| (local.month, local.day),
+/// );
+///
+/// if month == 7 && day == 20 {
+///     // Apollo 11 anniversary.
+/// }
+/// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct LocalDateTime {
-    year: i32,
+pub struct LocalDateTime {
+    pub year: i32,
     /// `[1;12]`
-    month: u32,
+    pub month: u32,
     /// `[1;31]`
-    day: u32,
+    pub day: u32,
     /// `[0 = Sunday, 6 = Saturday]`
-    weekday: u32,
+    pub weekday: u32,
     /// `[0;23]`
-    hour: u32,
+    pub hour: u32,
     /// `[0;59]`
-    minute: u32,
+    pub minute: u32,
     /// `[0;59]`
-    second: u32,
+    pub second: u32,
+}
+
+impl TryFrom<&UTCDateTime> for LocalDateTime {
+    type Error = ();
+
+    #[cfg(not(tarpaulin_include))]
+    fn try_from(datetime: &UTCDateTime) -> Result<Self, Self::Error> {
+        utcdatetime_to_localdatetime(datetime)
+    }
 }
 
 /// Serves as return value for [`phase()`].

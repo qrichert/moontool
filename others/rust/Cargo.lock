@@ -21,6 +21,7 @@ checksum = "ae743338b92ff9146ce83992f766a31066a91a8c84a45e0e9f21e7cf6de6d346"
 name = "moontool"
 version = "0.3.0"
 dependencies = [
+ "textcanvas",
  "time",
 ]
 
@@ -93,6 +94,12 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "textcanvas"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a77d76966531d7286a482fa68d21382929b8b844c5f5c9827652d26e75dda48"
 
 [[package]]
 name = "time"

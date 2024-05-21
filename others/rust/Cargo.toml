@@ -15,3 +15,11 @@ strip = true
 
 [dependencies]
 time = { version = "0.3", features = ["std", "parsing", "local-offset"] }
+textcanvas = { version = "2.1", optional = true }
+
+[features]
+canvas = ["textcanvas"]
+
+[[bin]]
+name = "moontool"
+required-features = ["canvas"]

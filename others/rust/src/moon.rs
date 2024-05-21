@@ -11,6 +11,7 @@
     clippy::many_single_char_names
 )]
 
+use std::str::FromStr;
 use std::{fmt, fmt::Write};
 
 //  Astronomical constants
@@ -317,14 +318,22 @@ impl From<(i32, u32, u32, u32, u32, u32, u32)> for UTCDateTime {
     }
 }
 
-impl TryFrom<&str> for UTCDateTime {
-    type Error = &'static str;
+impl FromStr for UTCDateTime {
+    type Err = &'static str;
 
-    fn try_from(datetime: &str) -> Result<Self, &'static str> {
+    fn from_str(datetime: &str) -> Result<Self, Self::Err> {
         let Ok(dt) = iso_datetime_string_to_utcdatetime(datetime) else {
             return Err("Invalid datetime string.");
         };
         Ok(dt)
+    }
+}
+
+impl TryFrom<&str> for UTCDateTime {
+    type Error = &'static str;
+
+    fn try_from(datetime: &str) -> Result<Self, &'static str> {
+        datetime.parse()
     }
 }
 
@@ -474,6 +483,14 @@ impl MoonPhase {
     #[must_use]
     pub fn for_datetime(datetime: &UTCDateTime) -> Self {
         moonphase(datetime)
+    }
+
+    /// # Errors
+    ///
+    /// If parsing of datetime string fails.
+    pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
+        let datetime = iso_string.parse()?;
+        Ok(Self::for_datetime(&datetime))
     }
 
     #[must_use]
@@ -706,6 +723,11 @@ pub struct MoonCalendar {
 impl MoonCalendar {
     pub fn for_datetime(datetime: &UTCDateTime) -> Result<Self, &'static str> {
         mooncal(datetime)
+    }
+
+    pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
+        let datetime = iso_string.parse()?;
+        Self::for_datetime(&datetime)
     }
 
     pub fn for_ymdhms(
@@ -1519,14 +1541,22 @@ mod tests {
         };
         let b = UTCDateTime::from((1968, 2, 27, 9, 10, 0));
         let c = UTCDateTime::from((1968, 2, 27, 2, 9, 10, 0));
-        let d = UTCDateTime::try_from("1968-02-27T09:10:00Z").unwrap();
-        let e = UTCDateTime::from(time::OffsetDateTime::new_utc(
+        let d = "1968-02-27T09:10:00Z".parse::<UTCDateTime>().unwrap();
+        let e = UTCDateTime::try_from("1968-02-27T09:10:00Z").unwrap();
+        let f = UTCDateTime::from(time::OffsetDateTime::new_utc(
             time::Date::from_calendar_date(1968, time::Month::February, 27).unwrap(),
             time::Time::from_hms(9, 10, 0).unwrap(),
         ));
-        let f = UTCDateTime::try_from(-58_200_600).unwrap();
+        let g = UTCDateTime::try_from(-58_200_600).unwrap();
 
-        assert!([b, c, d, e, f].iter().all(|x| *x == a));
+        assert!([b, c, d, e, f, g].iter().all(|x| *x == a));
+    }
+
+    #[test]
+    fn utcdatetime_parse_invalid_string() {
+        let dt = "Sat. 11 May 2024".parse::<UTCDateTime>();
+
+        assert!(dt.is_err());
     }
 
     #[test]
@@ -1547,10 +1577,11 @@ mod tests {
     fn every_way_of_creating_moonphase_gives_same_result() {
         let a = moonphase(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
         let b = MoonPhase::for_datetime(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
-        let c = MoonPhase::for_ymdhms(1968, 2, 27, 9, 10, 0);
-        let d = MoonPhase::for_timestamp(-58_200_600).unwrap();
+        let c = MoonPhase::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
+        let d = MoonPhase::for_ymdhms(1968, 2, 27, 9, 10, 0);
+        let e = MoonPhase::for_timestamp(-58_200_600).unwrap();
 
-        assert!([b, c, d].iter().all(|x| *x == a));
+        assert!([b, c, d, e].iter().all(|x| *x == a));
     }
 
     #[test]
@@ -1659,10 +1690,11 @@ Sun subtends:\t\t0.5367 degrees.\
     fn every_way_of_creating_mooncalendar_gives_same_result() {
         let a = mooncal(&UTCDateTime::from((1968, 2, 27, 9, 10, 0))).unwrap();
         let b = MoonCalendar::for_datetime(&UTCDateTime::from((1968, 2, 27, 9, 10, 0))).unwrap();
-        let c = MoonCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0).unwrap();
-        let d = MoonCalendar::for_timestamp(-58_200_600).unwrap();
+        let c = MoonCalendar::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
+        let d = MoonCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0).unwrap();
+        let e = MoonCalendar::for_timestamp(-58_200_600).unwrap();
 
-        assert!([b, c, d].iter().all(|x| *x == a));
+        assert!([b, c, d, e].iter().all(|x| *x == a));
     }
 
     #[test]

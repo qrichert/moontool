@@ -2,23 +2,34 @@
 
 """The Moontool CLI, served over the web.
 
-First, make sure you've installed the CLI version:
+First, make sure you've installed the Rust CLI version:
 
 ```shell
 make && sudo make install
 ```
 
+(C version works too, but it will fail on '--moon').
+
 Then start the web server:
 
 ```shell
 # Requires Python >= 3.9
-python web.py [--help] [--port 2222]
+python webmoon.py [--help] [--port 2222]
 ```
 
 To run it in the background, without worrying about the logs:
 
 ```shell
-nohup python web.py > /dev/null 2>&1 < /dev/null &
+nohup python webmoon.py > /dev/null 2>&1 < /dev/null &
+```
+
+Now you can query the server like this:
+
+```
+http://0.0.0.0:2222/?d=2024-05-28
+http://0.0.0.0:2222/?d=2024-05-28T19:16:00
+http://0.0.0.0:2222/?d=2024-05-28T19:16:00Z&moon=1
+http://0.0.0.0:2222/?moon=1
 ```
 """
 
@@ -69,10 +80,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def moontool(date: str) -> str:
+def moontool(date: str, do_render_moon: bool) -> str:
     command: list[str] = ["moontool"]
     if date:
         command.append(date)
+    if do_render_moon:
+        command.append("--moon")
     res: subprocess.CompletedProcess = subprocess.run(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
@@ -87,15 +100,16 @@ def serve(port: int) -> None:
             if url.path == "/":
                 date_param: list[str] = query.get("date") or query.get("d") or []
                 date: str = date_param[0] if date_param else ""
-                self.index(date)
+                do_render_moon: bool = bool(query.get("moon"))
+                self.index(date, do_render_moon)
             else:
                 self.error()
 
-        def index(self, date: str) -> None:
+        def index(self, date: str, do_render_moon: bool) -> None:
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            output: str = moontool(date)
+            output: str = moontool(date, do_render_moon)
             html: str = HTML_TEMPLATE
             html = html.replace("%{DATE}", f" - {date}" if date else "")
             html = html.replace("%{OUTPUT}", output)

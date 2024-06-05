@@ -1215,13 +1215,18 @@ fn phasehunt(sdate: f64) -> Result<(f64, f64, f64, f64, f64), &'static str> {
 
 /// Solve the equation of Kepler.
 fn kepler(mut m: f64, ecc: f64) -> f64 {
+    // `f64::EPSILON` (machine epsilon) is too small, which caused
+    // infinite loops here in some cases. Now we use the same value as
+    // the C version, which is precise enough (tests still pass).
+    const EPSILON: f64 = 1e-6;
+
     m = m.to_radians();
     let mut e = m;
 
     loop {
         let delta = e - ecc * e.sin() - m;
         e -= delta / (1.0 - ecc * e.cos());
-        if delta.abs() <= f64::EPSILON {
+        if delta.abs() <= EPSILON {
             break e;
         }
     }

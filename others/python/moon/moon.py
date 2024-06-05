@@ -5,7 +5,6 @@ John Walker's moontool.c calculation routines, ported to Python.
 
 import datetime as dt
 import math
-import sys
 from dataclasses import dataclass
 from typing import Self, cast
 
@@ -634,7 +633,10 @@ def phasehunt(sdate: float) -> tuple[float, float, float, float, float]:
 
 def kepler(m: float, ecc: float) -> float:
     """Solve the equation of Kepler."""
-    EPSILON: float = sys.float_info.epsilon
+    # `sys.float_info.epsilon` (machine epsilon) is too small, which can
+    # cause infinite loops here in some cases. Now we use the same value
+    # as the C version, which is precise enough (tests still pass).
+    EPSILON: float = 1e-6
 
     m = math.radians(m)
     e: float = m

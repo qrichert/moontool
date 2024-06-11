@@ -47,6 +47,7 @@ impl Config {
                 continue;
             }
 
+            // `-` can be the start of a negative timestamp.
             if arg.starts_with("--") || arg.starts_with('-') && arg.parse::<i64>().is_err() {
                 return Err(format!("Unknown argument '{arg}'."));
             }
@@ -103,7 +104,8 @@ optional arguments:
   --json                output as json
   []                    without arguments, defaults to now
   [DATETIME]            local datetime (e.g., 1994-12-22T14:53:34+01:00)
-  [±TIMESTAMP]          Unix timestamp (e.g., 788104414)",
+  [±TIMESTAMP]          Unix timestamp (e.g., 788104414)
+  [JULIAN DATE]         Julian date (e.g., 2449709.07887)",
         bin = env!("CARGO_BIN_NAME")
     )
 }
@@ -120,6 +122,8 @@ fn get_now() -> UTCDateTime {
 fn try_parse_datetime(datetime: &str) -> Option<UTCDateTime> {
     if let Some(datetime) = try_from_timestamp(datetime) {
         Some(datetime)
+    } else if let Some(datetime) = try_from_julian_date(datetime) {
+        Some(datetime)
     } else {
         try_from_datetime(datetime)
     }
@@ -130,6 +134,13 @@ fn try_from_timestamp(timestamp: &str) -> Option<UTCDateTime> {
         return None;
     };
     UTCDateTime::try_from(timestamp).ok()
+}
+
+fn try_from_julian_date(julian_date: &str) -> Option<UTCDateTime> {
+    let Ok(jd) = julian_date.parse::<f64>() else {
+        return None;
+    };
+    Some(UTCDateTime::from_julian_date(jd))
 }
 
 fn try_from_datetime(datetime: &str) -> Option<UTCDateTime> {
@@ -151,6 +162,7 @@ fn for_datetime(datetime: &UTCDateTime, config: &Config) {
         print_json(&mphase, &mcal);
         return;
     }
+
     print_pretty(&mphase, &mcal);
 }
 
@@ -640,7 +652,6 @@ mod tests {
 
     #[test]
     fn error_invalid_argument_full() {
-        // Because it could be mistaken for an argument.
         let args = vec![String::new(), String::from("--invalid")].into_iter();
         let config = Config::new(args);
 
@@ -650,7 +661,6 @@ mod tests {
 
     #[test]
     fn error_invalid_argument_short() {
-        // Because it could be mistaken for an argument.
         let args = vec![String::new(), String::from("-i")].into_iter();
         let config = Config::new(args);
 
@@ -665,6 +675,13 @@ mod tests {
         let dt = try_parse_datetime("966600000").unwrap();
 
         assert_eq!(dt, UTCDateTime::from((2000, 8, 18, 5, 12, 0, 0)));
+    }
+
+    #[test]
+    fn try_parse_datetime_julian_date() {
+        let dt = try_parse_datetime("2460473.19655").unwrap();
+
+        assert_eq!(dt, UTCDateTime::from((2024, 6, 11, 16, 43, 2)));
     }
 
     #[test]
@@ -714,6 +731,20 @@ mod tests {
         let dt = try_from_timestamp(&i64::MAX.to_string());
 
         assert!(dt.is_none());
+    }
+
+    #[test]
+    fn try_from_julian_date_regular() {
+        let dt = try_from_julian_date("2460473.19655").unwrap();
+
+        assert_eq!(dt, UTCDateTime::from((2024, 6, 11, 16, 43, 2)));
+    }
+
+    #[test]
+    fn try_from_julian_date_zero() {
+        let dt = try_from_julian_date("0.0").unwrap();
+
+        assert_eq!(dt, UTCDateTime::from((-4712, 1, 1, 1, 12, 0, 0)));
     }
 
     #[test]

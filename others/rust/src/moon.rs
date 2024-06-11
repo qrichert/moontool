@@ -282,6 +282,79 @@ impl UTCDateTime {
     pub fn now() -> Self {
         utcdatetime_now()
     }
+
+    /// Convert astronomical Julian date to `UTCDateTime`.
+    #[must_use]
+    pub fn from_julian_date(julian_date: f64) -> Self {
+        jtouct(julian_date)
+    }
+
+    /// Convert `UTCDateTime` to astronomical Julian date.
+    ///
+    /// Working with Julian dates makes it very convenient to do maths
+    /// with dates. You can add, subtract and iterate of days very
+    /// simply, and then convert the date back to a normal date when
+    /// done.
+    ///
+    /// > The Julian day is the continuous count of days since the beginning of the Julian period, and is used primarily by astronomers, and in software for easily calculating elapsed days between two events.
+    /// >
+    /// > The Julian day number (JDN) is the integer assigned to a whole solar day in the Julian day count starting from noon Universal Time, with Julian day number 0 assigned to the day starting at noon on Monday, January 1, 4713 BC (-4712), proleptic Julian calendar.
+    /// >
+    /// > The Julian date (JD) of any instant is the Julian day number plus the fraction of a day since the preceding noon in Universal Time.
+    /// >
+    /// > — Wikipedia
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use moontool::moon::UTCDateTime;
+    /// #
+    /// let day1: UTCDateTime = "2024-01-01T00:00:00".parse().unwrap();
+    /// let day1 = day1.to_julian_date();
+    ///
+    /// let day2: UTCDateTime = "2024-06-11T00:00:00".parse().unwrap();
+    /// let day2 = day2.to_julian_date();
+    ///
+    /// assert_eq!(day1, 2460310.5);
+    /// assert_eq!(day2, 2460472.5);
+    /// assert_eq!(day2 - day1, 162.0); // Days elapsed.
+    /// ```
+    #[must_use]
+    pub fn to_julian_date(&self) -> f64 {
+        jtime(self)
+    }
+
+    /// Convert `UTCDateTime` to civil Julian date.
+    ///
+    /// Conventional Julian date starts at noon (12h). This function
+    /// returns the civil, or 0h-variant, of the Julian date which
+    /// starts at midnight.
+    ///
+    /// The relation between the two is the following:
+    ///
+    /// ```text
+    /// Civil Julian day = Julian day + 0.5
+    /// ```
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use moontool::moon::UTCDateTime;
+    /// #
+    /// let day1: UTCDateTime = "2024-01-01T00:00:00".parse().unwrap();
+    /// let day1 = day1.to_civil_julian_date();
+    ///
+    /// let day2: UTCDateTime = "2024-06-11T00:00:00".parse().unwrap();
+    /// let day2 = day2.to_civil_julian_date();
+    ///
+    /// assert_eq!(day1, 2460311.0);
+    /// assert_eq!(day2, 2460473.0);
+    /// assert_eq!(day2 - day1, 162.0); // Days elapsed.
+    /// ```
+    #[must_use]
+    pub fn to_civil_julian_date(&self) -> f64 {
+        self.to_julian_date() + 0.5
+    }
 }
 
 impl From<(i32, u32, u32, u32, u32, u32)> for UTCDateTime {
@@ -899,7 +972,7 @@ fn fraction_of_lunation_to_phase(p: f64) -> usize {
 
 /// Populate `MoonPhase` with info about the Moon at given time.
 fn moonphase(gm: &UTCDateTime) -> MoonPhase {
-    let jd = jtime(gm);
+    let jd = gm.to_julian_date();
 
     let phase_info = phase(jd);
 
@@ -1024,7 +1097,7 @@ fn ucttoj(year: i32, month: u32, mday: u32, hour: u32, minute: u32, second: u32)
         + (f64::from(second + 60 * (minute + 60 * hour)) / 86400.0)
 }
 
-///  Convert astronomical Julian time to GMT date and time.
+/// Convert astronomical Julian time to GMT date and time.
 fn jtouct(utime: f64) -> UTCDateTime {
     let (yy, mm, dd) = jyear(utime);
     let (hh, mmm, ss) = jhms(utime);
@@ -1166,6 +1239,7 @@ fn truephase(mut k: f64, phase: f64) -> Result<f64, &'static str> {
         apcor = true;
     }
     if !apcor {
+        // TODO: panic here instead. never happens, and simplifies api
         return Err("TRUEPHASE called with invalid phase selector.");
     }
     Ok(pt)
@@ -1584,6 +1658,48 @@ mod tests {
         let g = UTCDateTime::try_from(-58_200_600).unwrap();
 
         assert!([b, c, d, e, f, g].iter().all(|x| *x == a));
+    }
+
+    #[test]
+    fn utcdatetime_from_julian_date_regular() {
+        let dt = UTCDateTime::from_julian_date(2_460_473.196_55);
+
+        assert_eq!(dt, UTCDateTime::from((2024, 6, 11, 16, 43, 2)));
+    }
+
+    #[test]
+    fn utcdatetime_from_julian_date_zero() {
+        let dt = UTCDateTime::from_julian_date(0.0);
+
+        assert_eq!(dt, UTCDateTime::from((-4712, 1, 1, 1, 12, 0, 0)));
+    }
+
+    #[test]
+    fn utcdatetime_to_julian_date_regular() {
+        let dt = UTCDateTime::from((2024, 6, 11, 16, 43, 2));
+
+        assert_almost_eq!(dt.to_julian_date(), 2_460_473.196_550_925_7);
+    }
+
+    #[test]
+    fn utcdatetime_to_julian_date_zero() {
+        let dt = UTCDateTime::from((-4712, 1, 1, 1, 12, 0, 0));
+
+        assert_almost_eq!(dt.to_julian_date(), 0.0);
+    }
+
+    #[test]
+    fn utcdatetime_to_civil_julian_date_regular() {
+        let dt = UTCDateTime::from((2024, 6, 11, 16, 43, 2));
+
+        assert_almost_eq!(dt.to_civil_julian_date(), 2_460_473.696_550_925_7);
+    }
+
+    #[test]
+    fn utcdatetime_to_civil_julian_date_zero() {
+        let dt = UTCDateTime::from((-4712, 1, 1, 1, 0, 0, 0));
+
+        assert_almost_eq!(dt.to_civil_julian_date(), 0.0);
     }
 
     #[test]

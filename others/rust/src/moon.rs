@@ -14,6 +14,8 @@
 use std::str::FromStr;
 use std::{fmt, fmt::Write};
 
+// TODO: it's time to split this file up
+
 //  Astronomical constants
 
 const EPOCH: f64 = 2_444_238.5; // 1980 January 0.0
@@ -126,19 +128,19 @@ fn utcdatetime_now() -> UTCDateTime {
     offsetdatetime_to_utcdatetime(&now)
 }
 
-fn utcdatetime_to_timestamp(datetime: &UTCDateTime) -> Result<i64, ()> {
+fn utcdatetime_to_timestamp(datetime: &UTCDateTime) -> Result<i64, &'static str> {
     let datetime = utcdatetime_to_offsetdatetime(datetime)?;
     Ok(datetime.unix_timestamp())
 }
 
-fn timestamp_to_utcdatetime(timestamp: i64) -> Result<UTCDateTime, ()> {
+fn timestamp_to_utcdatetime(timestamp: i64) -> Result<UTCDateTime, &'static str> {
     let Ok(datetime) = time::OffsetDateTime::from_unix_timestamp(timestamp) else {
-        return Err(());
+        return Err("Timestamp is out of range.");
     };
     Ok(offsetdatetime_to_utcdatetime(&datetime))
 }
 
-fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime, ()> {
+fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime, &'static str> {
     let datetime = if iso_datetime.contains('T') || iso_datetime.contains('t') {
         parse_datetime(iso_datetime)
     } else {
@@ -146,7 +148,7 @@ fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime,
     };
 
     let Ok(datetime) = datetime else {
-        return Err(());
+        return Err("Invalid datetime string.");
     };
 
     let datetime = datetime.to_offset(time::UtcOffset::UTC);
@@ -154,27 +156,33 @@ fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime,
     Ok(UTCDateTime::from(datetime))
 }
 
-fn parse_datetime(datetime: &str) -> Result<time::OffsetDateTime, ()> {
+fn parse_datetime(datetime: &str) -> Result<time::OffsetDateTime, &'static str> {
     let mut datetime = datetime.to_owned();
     // Implicit UTC if no offset provided.
     if !datetime.ends_with('Z') && !datetime.ends_with('z') && !datetime.contains('+') {
         datetime.push('Z');
     }
     let format = time::format_description::well_known::Rfc3339;
-    time::OffsetDateTime::parse(&datetime, &format).map_or(Err(()), Ok)
+    time::OffsetDateTime::parse(&datetime, &format).map_or(Err("Error parsing datetime."), Ok)
 }
 
-fn parse_date(date: &str) -> Result<time::OffsetDateTime, ()> {
+fn parse_date(date: &str) -> Result<time::OffsetDateTime, &'static str> {
     let format = time::format_description::parse("[year]-[month]-[day]").unwrap();
     let Ok(date) = time::Date::parse(date, &format) else {
-        return Err(());
+        return Err("Error parsing date.");
     };
     Ok(time::OffsetDateTime::new_utc(date, time::Time::MIDNIGHT))
 }
 
-fn weekday_for_ymdhms(ymdhms: (i32, u32, u32, u32, u32, u32)) -> Result<u32, ()> {
-    let (year, month, day, hour, minute, second) = ymdhms;
-    let Ok(datetime) = utcdatetime_to_offsetdatetime(&UTCDateTime {
+fn weekday_for_ymdhms(
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+) -> Result<u32, &'static str> {
+    let datetime = utcdatetime_to_offsetdatetime(&UTCDateTime {
         year,
         month,
         day,
@@ -182,19 +190,15 @@ fn weekday_for_ymdhms(ymdhms: (i32, u32, u32, u32, u32, u32)) -> Result<u32, ()>
         hour,
         minute,
         second,
-    }) else {
-        return Err(());
-    };
+    })?;
     Ok(u32::from(datetime.weekday().number_days_from_sunday()))
 }
 
 #[cfg(not(tarpaulin_include))]
-fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime, ()> {
-    let Ok(utc) = utcdatetime_to_offsetdatetime(datetime) else {
-        return Err(());
-    };
+fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime, &'static str> {
+    let utc = utcdatetime_to_offsetdatetime(datetime)?;
     let Ok(local_offset) = time::UtcOffset::local_offset_at(utc) else {
-        return Err(());
+        return Err("Error obtaining local offset.");
     };
 
     let local = utc.to_offset(local_offset);
@@ -210,19 +214,21 @@ fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime,
     })
 }
 
-fn utcdatetime_to_offsetdatetime(datetime: &UTCDateTime) -> Result<time::OffsetDateTime, ()> {
+fn utcdatetime_to_offsetdatetime(
+    datetime: &UTCDateTime,
+) -> Result<time::OffsetDateTime, &'static str> {
     let Ok(month) = time::Month::try_from(datetime.month as u8) else {
-        return Err(());
+        return Err("Invalid month.");
     };
     let Ok(date) = time::Date::from_calendar_date(datetime.year, month, datetime.day as u8) else {
-        return Err(());
+        return Err("Invalid date.");
     };
     let Ok(time) = time::Time::from_hms(
         datetime.hour as u8,
         datetime.minute as u8,
         datetime.second as u8,
     ) else {
-        return Err(());
+        return Err("Invalid time.");
     };
 
     Ok(time::OffsetDateTime::new_utc(date, time))
@@ -281,6 +287,93 @@ impl UTCDateTime {
     #[must_use]
     pub fn now() -> Self {
         utcdatetime_now()
+    }
+
+    /// From raw Year, Month, Day, Hour, Minute, Second values.
+    ///
+    /// # Errors
+    ///
+    /// If weekday cannot be determined, it will be set to 99.
+    #[must_use]
+    pub fn from_ymdhms(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        minute: u32,
+        second: u32,
+    ) -> Self {
+        let weekday = weekday_for_ymdhms(year, month, day, hour, minute, second).unwrap_or(99);
+        Self {
+            year,
+            month,
+            day,
+            weekday,
+            hour,
+            minute,
+            second,
+        }
+    }
+
+    /// From raw Year, Month, Day, Weekday, Hour, Minute, Second values.
+    #[must_use]
+    pub fn from_ymddhms(
+        year: i32,
+        month: u32,
+        day: u32,
+        weekday: u32,
+        hour: u32,
+        minute: u32,
+        second: u32,
+    ) -> Self {
+        Self {
+            year,
+            month,
+            day,
+            weekday,
+            hour,
+            minute,
+            second,
+        }
+    }
+
+    /// From ISO 8601 date or datetime string.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use moontool::moon::UTCDateTime;
+    /// let _ = UTCDateTime::from_iso_string("2024-06-14").unwrap();
+    /// let _ = UTCDateTime::from_iso_string("2024-06-14T21:21:00").unwrap();
+    /// let _ = UTCDateTime::from_iso_string("2024-06-14T21:21:00Z").unwrap();
+    /// let _ = UTCDateTime::from_iso_string("2024-06-14T19:21:00+02:00").unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Errors if input string in invalid format.
+    pub fn from_iso_string(iso_string: &str) -> Result<Self, &'static str> {
+        Self::try_from(iso_string)
+    }
+
+    /// Convert Unix timestamp to `UTCDateTime`.
+    ///
+    /// # Errors
+    ///
+    /// Errors if result date or time is invalid (e.g., `2024-01-42`).
+    pub fn from_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+        let dt = timestamp_to_utcdatetime(timestamp)?;
+        Ok(dt)
+    }
+
+    /// Convert `UTCDateTime` to Unix timestamp.
+    ///
+    /// # Errors
+    ///
+    /// Errors if date or time is invalid (e.g., `2024-01-42`).
+    pub fn to_timestamp(&self) -> Result<i64, &'static str> {
+        let timestamp = utcdatetime_to_timestamp(self)?;
+        Ok(timestamp)
     }
 
     /// Convert astronomical Julian date to `UTCDateTime`.
@@ -357,47 +450,11 @@ impl UTCDateTime {
     }
 }
 
-impl From<(i32, u32, u32, u32, u32, u32)> for UTCDateTime {
-    /// # Errors
-    ///
-    /// If weekday cannot be determined, it will be set to 99.
-    fn from(ymdhms: (i32, u32, u32, u32, u32, u32)) -> Self {
-        let (year, month, day, hour, minute, second) = ymdhms;
-        let weekday = weekday_for_ymdhms(ymdhms).unwrap_or(99);
-        Self {
-            year,
-            month,
-            day,
-            weekday,
-            hour,
-            minute,
-            second,
-        }
-    }
-}
-
-impl From<(i32, u32, u32, u32, u32, u32, u32)> for UTCDateTime {
-    fn from(ymddhms: (i32, u32, u32, u32, u32, u32, u32)) -> Self {
-        let (year, month, day, weekday, hour, minute, second) = ymddhms;
-        Self {
-            year,
-            month,
-            day,
-            weekday,
-            hour,
-            minute,
-            second,
-        }
-    }
-}
-
 impl FromStr for UTCDateTime {
     type Err = &'static str;
 
     fn from_str(datetime: &str) -> Result<Self, Self::Err> {
-        let Ok(dt) = iso_datetime_string_to_utcdatetime(datetime) else {
-            return Err("Invalid datetime string.");
-        };
+        let dt = iso_datetime_string_to_utcdatetime(datetime)?;
         Ok(dt)
     }
 }
@@ -405,7 +462,7 @@ impl FromStr for UTCDateTime {
 impl TryFrom<&str> for UTCDateTime {
     type Error = &'static str;
 
-    fn try_from(datetime: &str) -> Result<Self, &'static str> {
+    fn try_from(datetime: &str) -> Result<Self, Self::Error> {
         datetime.parse()
     }
 }
@@ -416,14 +473,11 @@ impl From<time::OffsetDateTime> for UTCDateTime {
     }
 }
 
-impl TryFrom<i64> for UTCDateTime {
+impl TryFrom<&UTCDateTime> for time::OffsetDateTime {
     type Error = &'static str;
 
-    fn try_from(timestamp: i64) -> Result<Self, &'static str> {
-        let Ok(dt) = timestamp_to_utcdatetime(timestamp) else {
-            return Err("Timestamp is out of range.");
-        };
-        Ok(dt)
+    fn try_from(dt: &UTCDateTime) -> Result<Self, Self::Error> {
+        utcdatetime_to_offsetdatetime(dt)
     }
 }
 
@@ -449,7 +503,7 @@ impl fmt::Display for UTCDateTime {
 /// let landing = UTCDateTime::try_from("1969-07-20T20:17:40Z").unwrap();
 ///
 /// let (month, day) = LocalDateTime::try_from(&landing).map_or_else(
-///     |()| (landing.month, landing.day), // Fall back to UTC.
+///     |_| (landing.month, landing.day), // Fall back to UTC.
 ///     |local| (local.month, local.day),
 /// );
 ///
@@ -475,7 +529,7 @@ pub struct LocalDateTime {
 }
 
 impl TryFrom<&UTCDateTime> for LocalDateTime {
-    type Error = ();
+    type Error = &'static str;
 
     #[cfg(not(tarpaulin_include))]
     fn try_from(datetime: &UTCDateTime) -> Result<Self, Self::Error> {
@@ -582,17 +636,16 @@ pub struct MoonPhase {
 }
 
 impl MoonPhase {
+    #[cfg(not(tarpaulin_include))]
+    #[must_use]
+    pub fn now() -> Self {
+        let now = UTCDateTime::now();
+        Self::for_datetime(&now)
+    }
+
     #[must_use]
     pub fn for_datetime(datetime: &UTCDateTime) -> Self {
         moonphase(datetime)
-    }
-
-    /// # Errors
-    ///
-    /// If parsing of datetime string fails.
-    pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
-        let datetime = iso_string.parse()?;
-        Ok(Self::for_datetime(&datetime))
     }
 
     #[must_use]
@@ -615,17 +668,24 @@ impl MoonPhase {
         })
     }
 
-    #[allow(clippy::missing_errors_doc)]
-    pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
-        let datetime = UTCDateTime::try_from(timestamp)?;
+    /// # Errors
+    ///
+    /// If parsing of datetime string fails.
+    pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
+        let datetime = iso_string.parse()?;
         Ok(Self::for_datetime(&datetime))
     }
 
-    #[cfg(not(tarpaulin_include))]
+    #[allow(clippy::missing_errors_doc)]
+    pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+        let datetime = UTCDateTime::from_timestamp(timestamp)?;
+        Ok(Self::for_datetime(&datetime))
+    }
+
     #[must_use]
-    pub fn now() -> Self {
-        let now = UTCDateTime::now();
-        Self::for_datetime(&now)
+    pub fn for_julian_date(julian_date: f64) -> Self {
+        let datetime = UTCDateTime::from_julian_date(julian_date);
+        Self::for_datetime(&datetime)
     }
 }
 
@@ -827,14 +887,16 @@ pub struct MoonCalendar {
 // Global explanation in `struct MoonCalendar`'s docstring.
 #[allow(clippy::missing_errors_doc)]
 impl MoonCalendar {
+    #[cfg(not(tarpaulin_include))]
+    #[must_use]
+    pub fn now() -> Self {
+        let now = UTCDateTime::now();
+        Self::for_datetime(&now)
+    }
+
     #[must_use]
     pub fn for_datetime(datetime: &UTCDateTime) -> Self {
         mooncal(datetime)
-    }
-
-    pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
-        let datetime = iso_string.parse()?;
-        Ok(Self::for_datetime(&datetime))
     }
 
     #[must_use]
@@ -857,16 +919,24 @@ impl MoonCalendar {
         })
     }
 
-    pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
-        let datetime = UTCDateTime::try_from(timestamp)?;
+    /// # Errors
+    ///
+    /// If parsing of datetime string fails.
+    pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
+        let datetime = iso_string.parse()?;
         Ok(Self::for_datetime(&datetime))
     }
 
-    #[cfg(not(tarpaulin_include))]
+    pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+        let datetime = UTCDateTime::from_timestamp(timestamp)?;
+        Ok(Self::for_datetime(&datetime))
+    }
+
+    // TODO: test
     #[must_use]
-    pub fn now() -> Self {
-        let now = UTCDateTime::now();
-        Self::for_datetime(&now)
+    pub fn for_julian_date(julian_date: f64) -> Self {
+        let datetime = UTCDateTime::from_julian_date(julian_date);
+        Self::for_datetime(&datetime)
     }
 
     // TODO:
@@ -1473,21 +1543,22 @@ mod tests {
 
     #[test]
     fn utcdatetime_to_timestamp_regular() {
-        let t = utcdatetime_to_timestamp(&UTCDateTime::from((2024, 4, 30, 18, 21, 42))).unwrap();
+        let t =
+            utcdatetime_to_timestamp(&UTCDateTime::from_ymdhms(2024, 4, 30, 18, 21, 42)).unwrap();
 
         assert_eq!(t, 1_714_501_302);
     }
 
     #[test]
     fn utcdatetime_to_timestamp_zero() {
-        let t = utcdatetime_to_timestamp(&UTCDateTime::from((1970, 1, 1, 0, 0, 0))).unwrap();
+        let t = utcdatetime_to_timestamp(&UTCDateTime::from_ymdhms(1970, 1, 1, 0, 0, 0)).unwrap();
 
         assert_eq!(t, 0);
     }
 
     #[test]
     fn utcdatetime_to_timestamp_negative() {
-        let t = utcdatetime_to_timestamp(&UTCDateTime::from((1940, 10, 13, 0, 0, 0))).unwrap();
+        let t = utcdatetime_to_timestamp(&UTCDateTime::from_ymdhms(1940, 10, 13, 0, 0, 0)).unwrap();
 
         assert_eq!(t, -922_060_800);
     }
@@ -1496,21 +1567,21 @@ mod tests {
     fn timestamp_to_utcdatetime_regular() {
         let dt = timestamp_to_utcdatetime(1_714_501_302).unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((2024, 4, 30, 2, 18, 21, 42)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(2024, 4, 30, 2, 18, 21, 42));
     }
 
     #[test]
     fn timestamp_to_utcdatetime_zero() {
         let dt = timestamp_to_utcdatetime(0).unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1970, 1, 1, 4, 0, 0, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1970, 1, 1, 4, 0, 0, 0));
     }
 
     #[test]
     fn timestamp_to_utcdatetime_negative() {
         let dt = timestamp_to_utcdatetime(-922_060_800).unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1940, 10, 13, 0, 0, 0, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1940, 10, 13, 0, 0, 0, 0));
     }
 
     #[test]
@@ -1524,28 +1595,28 @@ mod tests {
     fn iso_datetime_string_to_utcdatetime_from_datetime_utc() {
         let dt = iso_datetime_string_to_utcdatetime("1964-12-20T04:35:00Z").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
     }
 
     #[test]
     fn iso_datetime_string_to_utcdatetime_from_datetime_utc_lowercase() {
         let dt = iso_datetime_string_to_utcdatetime("1964-12-20t04:35:00z").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
     }
 
     #[test]
     fn iso_datetime_string_to_utcdatetime_from_datetime_implicit_utc() {
         let dt = iso_datetime_string_to_utcdatetime("1964-12-20T04:35:00").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
     }
 
     #[test]
     fn iso_datetime_string_to_utcdatetime_from_datetime_offset() {
         let dt = iso_datetime_string_to_utcdatetime("1964-12-20T05:35:00+01:00").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
     }
 
     #[test]
@@ -1559,7 +1630,7 @@ mod tests {
     fn iso_datetime_string_to_utcdatetime_from_date() {
         let d = iso_datetime_string_to_utcdatetime("1938-07-15").unwrap();
 
-        assert_eq!(d, UTCDateTime::from((1938, 7, 15, 5, 0, 0, 0)));
+        assert_eq!(d, UTCDateTime::from_ymddhms(1938, 7, 15, 5, 0, 0, 0));
     }
 
     #[test]
@@ -1571,18 +1642,18 @@ mod tests {
 
     #[test]
     fn weekday_for_ymdhms_regular() {
-        assert_eq!(weekday_for_ymdhms((2024, 5, 13, 20, 47, 23)).unwrap(), 1); // Monday
-        assert_eq!(weekday_for_ymdhms((2024, 5, 14, 20, 47, 23)).unwrap(), 2); // Tuesday
-        assert_eq!(weekday_for_ymdhms((2024, 5, 15, 20, 47, 23)).unwrap(), 3); // Wednesday
-        assert_eq!(weekday_for_ymdhms((2024, 5, 16, 20, 47, 23)).unwrap(), 4); // Thursday
-        assert_eq!(weekday_for_ymdhms((2024, 5, 17, 20, 47, 23)).unwrap(), 5); // Friday
-        assert_eq!(weekday_for_ymdhms((2024, 5, 18, 20, 47, 23)).unwrap(), 6); // Saturday
-        assert_eq!(weekday_for_ymdhms((2024, 5, 19, 20, 47, 23)).unwrap(), 0); // Sunday
+        assert_eq!(weekday_for_ymdhms(2024, 5, 13, 20, 47, 23).unwrap(), 1); // Monday
+        assert_eq!(weekday_for_ymdhms(2024, 5, 14, 20, 47, 23).unwrap(), 2); // Tuesday
+        assert_eq!(weekday_for_ymdhms(2024, 5, 15, 20, 47, 23).unwrap(), 3); // Wednesday
+        assert_eq!(weekday_for_ymdhms(2024, 5, 16, 20, 47, 23).unwrap(), 4); // Thursday
+        assert_eq!(weekday_for_ymdhms(2024, 5, 17, 20, 47, 23).unwrap(), 5); // Friday
+        assert_eq!(weekday_for_ymdhms(2024, 5, 18, 20, 47, 23).unwrap(), 6); // Saturday
+        assert_eq!(weekday_for_ymdhms(2024, 5, 19, 20, 47, 23).unwrap(), 0); // Sunday
     }
 
     #[test]
     fn weekday_for_ymdhms_error() {
-        let weekday = weekday_for_ymdhms((2024, 5, 99, 20, 47, 23));
+        let weekday = weekday_for_ymdhms(2024, 5, 99, 20, 47, 23);
 
         assert!(weekday.is_err());
     }
@@ -1590,7 +1661,8 @@ mod tests {
     #[test]
     fn utcdatetime_to_offsetdatetime_regular() {
         let odt =
-            utcdatetime_to_offsetdatetime(&UTCDateTime::from((1938, 7, 15, 5, 0, 0, 0))).unwrap();
+            utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymddhms(1938, 7, 15, 5, 0, 0, 0))
+                .unwrap();
 
         assert_eq!(
             odt,
@@ -1603,21 +1675,24 @@ mod tests {
 
     #[test]
     fn utcdatetime_to_offsetdatetime_bad_month() {
-        let odt = utcdatetime_to_offsetdatetime(&UTCDateTime::from((1938, 9999, 15, 5, 0, 0, 0)));
+        let odt =
+            utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymddhms(1938, 9999, 15, 5, 0, 0, 0));
 
         assert!(odt.is_err());
     }
 
     #[test]
     fn utcdatetime_to_offsetdatetime_bad_date() {
-        let odt = utcdatetime_to_offsetdatetime(&UTCDateTime::from((1938, 7, 255, 5, 0, 0, 0)));
+        let odt =
+            utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymddhms(1938, 7, 255, 5, 0, 0, 0));
 
         assert!(odt.is_err());
     }
 
     #[test]
     fn utcdatetime_to_offsetdatetime_bad_time() {
-        let odt = utcdatetime_to_offsetdatetime(&UTCDateTime::from((1938, 7, 15, 5, 255, 0, 0)));
+        let odt =
+            utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymddhms(1938, 7, 15, 5, 255, 0, 0));
 
         assert!(odt.is_err());
     }
@@ -1629,7 +1704,7 @@ mod tests {
             time::Time::from_hms(0, 0, 0).unwrap(),
         ));
 
-        assert_eq!(dt, UTCDateTime::from((1938, 7, 15, 5, 0, 0, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1938, 7, 15, 5, 0, 0, 0));
     }
 
     // Custom API
@@ -1645,57 +1720,135 @@ mod tests {
             minute: 10,
             second: 0,
         };
-        let b = UTCDateTime::from((1968, 2, 27, 9, 10, 0));
-        let c = UTCDateTime::from((1968, 2, 27, 2, 9, 10, 0));
+        let b = UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0);
+        let c = UTCDateTime::from_ymddhms(1968, 2, 27, 2, 9, 10, 0);
         let d = "1968-02-27T09:10:00Z".parse::<UTCDateTime>().unwrap();
-        let e = UTCDateTime::try_from("1968-02-27T09:10:00Z").unwrap();
-        let f = UTCDateTime::from(time::OffsetDateTime::new_utc(
+        let e = UTCDateTime::from_iso_string("1968-02-27T09:10:00Z").unwrap();
+        let f = UTCDateTime::try_from("1968-02-27T09:10:00Z").unwrap();
+        let g = UTCDateTime::from(time::OffsetDateTime::new_utc(
             time::Date::from_calendar_date(1968, time::Month::February, 27).unwrap(),
             time::Time::from_hms(9, 10, 0).unwrap(),
         ));
-        let g = UTCDateTime::try_from(-58_200_600).unwrap();
+        let h = UTCDateTime::from_timestamp(-58_200_600).unwrap();
+        let i = UTCDateTime::from_julian_date(2_439_913.881_944_444_5);
 
-        assert!([b, c, d, e, f, g].iter().all(|x| *x == a));
+        assert!([b, c, d, e, f, g, h, i].iter().all(|x| *x == a));
+    }
+
+    #[test]
+    fn utcdatetime_from_iso_string_date() {
+        let a = UTCDateTime {
+            year: 2024,
+            month: 6,
+            day: 14,
+            weekday: 5,
+            hour: 0,
+            minute: 0,
+            second: 0,
+        };
+        let b = "2024-06-14".parse::<UTCDateTime>().unwrap();
+
+        assert!([b].iter().all(|x| *x == a));
+    }
+
+    #[test]
+    fn utcdatetime_from_iso_string_datetime() {
+        let a = UTCDateTime {
+            year: 2024,
+            month: 6,
+            day: 14,
+            weekday: 5,
+            hour: 21,
+            minute: 21,
+            second: 0,
+        };
+        let b = "2024-06-14T21:21:00".parse::<UTCDateTime>().unwrap();
+        let c = "2024-06-14T21:21:00Z".parse::<UTCDateTime>().unwrap();
+        let d = "2024-06-14T23:21:00+02:00".parse::<UTCDateTime>().unwrap();
+
+        assert!([b, c, d].iter().all(|x| *x == a));
+    }
+
+    #[test]
+    fn utcdatetime_try_from_timestamp_positive() {
+        let dt = UTCDateTime::from_timestamp(966_600_000).unwrap();
+
+        assert_eq!(dt, UTCDateTime::from_ymddhms(2000, 8, 18, 5, 12, 0, 0));
+    }
+
+    #[test]
+    fn utcdatetime_try_from_timestamp_zero() {
+        let dt = UTCDateTime::from_timestamp(0).unwrap();
+
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1970, 1, 1, 4, 0, 0, 0));
+    }
+
+    #[test]
+    fn utcdatetime_try_from_timestamp_negative() {
+        let dt = UTCDateTime::from_timestamp(-58_200_600).unwrap();
+
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1968, 2, 27, 2, 9, 10, 0));
+    }
+
+    #[test]
+    fn utcdatetime_to_timestamp_positive() {
+        let dt = UTCDateTime::from_ymddhms(2000, 8, 18, 5, 12, 0, 0);
+
+        assert_eq!(dt.to_timestamp().unwrap(), 966_600_000);
+    }
+
+    #[test]
+    fn utcdatetime_to_timestamp_zero_() {
+        let dt = UTCDateTime::from_ymddhms(1970, 1, 1, 4, 0, 0, 0);
+
+        assert_eq!(dt.to_timestamp().unwrap(), 0);
+    }
+
+    #[test]
+    fn utcdatetime_to_timestamp_negative_() {
+        let dt = UTCDateTime::from_ymddhms(1968, 2, 27, 2, 9, 10, 0);
+
+        assert_eq!(dt.to_timestamp().unwrap(), -58_200_600);
     }
 
     #[test]
     fn utcdatetime_from_julian_date_regular() {
         let dt = UTCDateTime::from_julian_date(2_460_473.196_55);
 
-        assert_eq!(dt, UTCDateTime::from((2024, 6, 11, 16, 43, 2)));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(2024, 6, 11, 16, 43, 2));
     }
 
     #[test]
     fn utcdatetime_from_julian_date_zero() {
         let dt = UTCDateTime::from_julian_date(0.0);
 
-        assert_eq!(dt, UTCDateTime::from((-4712, 1, 1, 1, 12, 0, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(-4712, 1, 1, 1, 12, 0, 0));
     }
 
     #[test]
     fn utcdatetime_to_julian_date_regular() {
-        let dt = UTCDateTime::from((2024, 6, 11, 16, 43, 2));
+        let dt = UTCDateTime::from_ymdhms(2024, 6, 11, 16, 43, 2);
 
         assert_almost_eq!(dt.to_julian_date(), 2_460_473.196_550_925_7);
     }
 
     #[test]
     fn utcdatetime_to_julian_date_zero() {
-        let dt = UTCDateTime::from((-4712, 1, 1, 1, 12, 0, 0));
+        let dt = UTCDateTime::from_ymddhms(-4712, 1, 1, 1, 12, 0, 0);
 
         assert_almost_eq!(dt.to_julian_date(), 0.0);
     }
 
     #[test]
     fn utcdatetime_to_civil_julian_date_regular() {
-        let dt = UTCDateTime::from((2024, 6, 11, 16, 43, 2));
+        let dt = UTCDateTime::from_ymdhms(2024, 6, 11, 16, 43, 2);
 
         assert_almost_eq!(dt.to_civil_julian_date(), 2_460_473.696_550_925_7);
     }
 
     #[test]
     fn utcdatetime_to_civil_julian_date_zero() {
-        let dt = UTCDateTime::from((-4712, 1, 1, 1, 0, 0, 0));
+        let dt = UTCDateTime::from_ymddhms(-4712, 1, 1, 1, 0, 0, 0);
 
         assert_almost_eq!(dt.to_civil_julian_date(), 0.0);
     }
@@ -1716,26 +1869,41 @@ mod tests {
 
     #[test]
     fn utcdatetime_display() {
-        let dt = UTCDateTime::from((1968, 2, 27, 2, 9, 10, 0));
+        let dt = UTCDateTime::from_ymddhms(1968, 2, 27, 2, 9, 10, 0);
 
         assert_eq!(dt.to_string(), "1968-02-27T09:10:00Z");
     }
 
     #[test]
-    fn every_way_of_creating_moonphase_gives_same_result() {
-        let a = moonphase(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
-        let b = MoonPhase::for_datetime(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
-        let c = MoonPhase::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
-        let d = MoonPhase::for_ymdhms(1968, 2, 27, 9, 10, 0);
-        let e = MoonPhase::for_timestamp(-58_200_600).unwrap();
-        // TODO: let f = MoonPhase::for_julian_date()
+    fn utcdatetime_to_offsetdatetime_() {
+        let odt =
+            time::OffsetDateTime::try_from(&UTCDateTime::from_ymddhms(1938, 7, 15, 5, 0, 0, 0))
+                .unwrap();
 
-        assert!([b, c, d, e].iter().all(|x| *x == a));
+        assert_eq!(
+            odt,
+            time::OffsetDateTime::new_utc(
+                time::Date::from_calendar_date(1938, time::Month::July, 15).unwrap(),
+                time::Time::from_hms(0, 0, 0).unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn every_way_of_creating_moonphase_gives_same_result() {
+        let a = moonphase(&UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
+        let b = MoonPhase::for_datetime(&UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
+        let c = MoonPhase::for_ymdhms(1968, 2, 27, 9, 10, 0);
+        let d = MoonPhase::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
+        let e = MoonPhase::for_timestamp(-58_200_600).unwrap();
+        let f = MoonPhase::for_julian_date(2_439_913.881_944_444_5);
+
+        assert!([b, c, d, e, f].iter().all(|x| *x == a));
     }
 
     #[test]
     fn moonphase_regular() {
-        let mut mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
+        let mut mphase = moonphase(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
         // This value is slightly different across systems.
         // To simplify testing, we assert it is OK first, and then
@@ -1748,7 +1916,7 @@ mod tests {
             MoonPhase {
                 julian_date: 2_449_787.569_444_444_5,
                 timestamp: Some(794_886_000),
-                utc_datetime: UTCDateTime::from((1995, 3, 11, 6, 1, 40, 0)),
+                utc_datetime: UTCDateTime::from_ymddhms(1995, 3, 11, 6, 1, 40, 0),
                 age: 8.861_826_144_635_483,
                 fraction_of_lunation: 0.300_089_721_903_758_6,
                 phase: 3,
@@ -1778,7 +1946,7 @@ mod tests {
 
     #[test]
     fn moonphase_display() {
-        let mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
+        let mphase = moonphase(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
         // The testing environment is considered "unsound" by time-rs,
         // which then errors on anything local-time related. This is why
@@ -1810,7 +1978,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn moonphase_to_json() {
-        let mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
+        let mphase = moonphase(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
         let mut json = mphase.to_json();
 
@@ -1829,7 +1997,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn moonphase_to_json_timestamp_error() {
-        let mut mphase = moonphase(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
+        let mut mphase = moonphase(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
         mphase.timestamp = None;
 
         assert!(mphase.to_json().contains(r#""timestamp":null,"#));
@@ -1837,34 +2005,34 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn every_way_of_creating_mooncalendar_gives_same_result() {
-        let a = mooncal(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
-        let b = MoonCalendar::for_datetime(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
-        let c = MoonCalendar::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
-        let d = MoonCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0);
+        let a = mooncal(&UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
+        let b = MoonCalendar::for_datetime(&UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
+        let c = MoonCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0);
+        let d = MoonCalendar::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
         let e = MoonCalendar::for_timestamp(-58_200_600).unwrap();
-        // TODO: let f = MoonCalendar::for_julian_date()
+        let f = MoonCalendar::for_julian_date(2_439_913.881_944_444_5);
 
-        assert!([b, c, d, e].iter().all(|x| *x == a));
+        assert!([b, c, d, e, f].iter().all(|x| *x == a));
     }
 
     #[test]
     fn mooncalendar_regular() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
+        let mcal = mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
         assert_eq!(
             mcal,
             MoonCalendar {
                 lunation: 893,
                 last_new_moon: 2_449_777.993_024_320_3,
-                last_new_moon_utc: UTCDateTime::from((1995, 3, 1, 3, 11, 49, 57)),
+                last_new_moon_utc: UTCDateTime::from_ymddhms(1995, 3, 1, 3, 11, 49, 57),
                 first_quarter: 2_449_785.925_942_567_6,
-                first_quarter_utc: UTCDateTime::from((1995, 3, 9, 4, 10, 13, 21)),
+                first_quarter_utc: UTCDateTime::from_ymddhms(1995, 3, 9, 4, 10, 13, 21),
                 full_moon: 2_449_793.560_731_158_6,
-                full_moon_utc: UTCDateTime::from((1995, 3, 17, 5, 1, 27, 27)),
+                full_moon_utc: UTCDateTime::from_ymddhms(1995, 3, 17, 5, 1, 27, 27),
                 last_quarter: 2_449_800.341_072_181_2,
-                last_quarter_utc: UTCDateTime::from((1995, 3, 23, 4, 20, 11, 9)),
+                last_quarter_utc: UTCDateTime::from_ymddhms(1995, 3, 23, 4, 20, 11, 9),
                 next_new_moon: 2_449_807.590_823_359_3,
-                next_new_moon_utc: UTCDateTime::from((1995, 3, 31, 5, 2, 10, 47)),
+                next_new_moon_utc: UTCDateTime::from_ymddhms(1995, 3, 31, 5, 2, 10, 47),
             }
         );
     }
@@ -1878,7 +2046,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn mooncalendar_display() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
+        let mcal = mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
         assert_eq!(
             mcal.to_string(),
@@ -1897,7 +2065,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn mooncalendar_to_json() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
+        let mcal = mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
         assert_eq!(
             mcal.to_json(),
@@ -1999,7 +2167,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn fmt_phase_time_regular() {
-        let gm = UTCDateTime::from((1995, 3, 12, 0, 11, 16, 26));
+        let gm = UTCDateTime::from_ymddhms(1995, 3, 12, 0, 11, 16, 26);
 
         let res = fmt_phase_time(&gm);
 
@@ -2008,7 +2176,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn fmt_phase_time_month_padding() {
-        let mut gm = UTCDateTime::from((1995, 3, 12, 0, 11, 16, 26));
+        let mut gm = UTCDateTime::from_ymddhms(1995, 3, 12, 0, 11, 16, 26);
 
         gm.month = 5; // May (shortest)
         assert_eq!(fmt_phase_time(&gm), "Sunday    11:16 UTC 12 May   1995");
@@ -2028,7 +2196,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn fmt_phase_time_at_boundaries() {
-        let mut gm = UTCDateTime::from((1995, 3, 12, 0, 11, 16, 26));
+        let mut gm = UTCDateTime::from_ymddhms(1995, 3, 12, 0, 11, 16, 26);
 
         gm.weekday = 0; // Sunday
         assert_eq!(fmt_phase_time(&gm), "Sunday    11:16 UTC 12 March 1995");
@@ -2048,28 +2216,28 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn jtime_regular() {
-        let jd = jtime(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
+        let jd = jtime(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
         assert_almost_eq!(jd, 2_449_787.569_444_444_5);
     }
 
     #[test]
     fn jtime_january() {
-        let jd = jtime(&UTCDateTime::from((1995, 1, 1, 0, 0, 0)));
+        let jd = jtime(&UTCDateTime::from_ymdhms(1995, 1, 1, 0, 0, 0));
 
         assert_almost_eq!(jd, 2_449_718.5);
     }
 
     #[test]
     fn jtime_zero() {
-        let jd = jtime(&UTCDateTime::from((-4712, 1, 1, 12, 0, 0)));
+        let jd = jtime(&UTCDateTime::from_ymdhms(-4712, 1, 1, 12, 0, 0));
 
         assert_almost_eq!(jd, 0.0);
     }
 
     #[test]
     fn jtime_negative() {
-        let jd = jtime(&UTCDateTime::from((-8000, 1, 1, 0, 0, 0)));
+        let jd = jtime(&UTCDateTime::from_ymdhms(-8000, 1, 1, 0, 0, 0));
 
         assert_almost_eq!(jd, -1_200_941.5);
     }
@@ -2099,7 +2267,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
     fn jtouct_regular() {
         let gm = jtouct(2_438_749.732_639);
 
-        assert_eq!(gm, UTCDateTime::from((1964, 12, 20, 0, 5, 35, 0)));
+        assert_eq!(gm, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 5, 35, 0));
     }
 
     #[test]

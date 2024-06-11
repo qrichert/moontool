@@ -144,7 +144,7 @@ fn try_parse_datetime(datetime: &str) -> Option<UTCDateTime> {
     } else if let Some(datetime) = try_from_julian_date(datetime) {
         Some(datetime)
     } else {
-        try_from_datetime(datetime)
+        try_from_iso_string(datetime)
     }
 }
 
@@ -152,7 +152,7 @@ fn try_from_timestamp(timestamp: &str) -> Option<UTCDateTime> {
     let Ok(timestamp) = timestamp.parse::<i64>() else {
         return None;
     };
-    UTCDateTime::try_from(timestamp).ok()
+    UTCDateTime::from_timestamp(timestamp).ok()
 }
 
 fn try_from_julian_date(julian_date: &str) -> Option<UTCDateTime> {
@@ -162,8 +162,8 @@ fn try_from_julian_date(julian_date: &str) -> Option<UTCDateTime> {
     Some(UTCDateTime::from_julian_date(jd))
 }
 
-fn try_from_datetime(datetime: &str) -> Option<UTCDateTime> {
-    UTCDateTime::try_from(datetime).ok()
+fn try_from_iso_string(datetime: &str) -> Option<UTCDateTime> {
+    UTCDateTime::from_iso_string(datetime).ok()
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -357,7 +357,7 @@ fn render_moon(ph: f64, date: &UTCDateTime) -> String {
     // Red Dot at Tranquility Base. Otherwise, just show the regular
     // mare floor.
     let (month, day) = LocalDateTime::try_from(date).map_or_else(
-        |()| (date.month, date.day),
+        |_| (date.month, date.day), // Fall back to UTC.
         |local| (local.month, local.day),
     );
     if month == 7 && day == 20 {
@@ -448,9 +448,7 @@ fn render_moon_graphs(mcal: &MoonCalendar, date: &UTCDateTime, verbose: bool) ->
 
 fn graph_lunation_for_month(mcal: &MoonCalendar, date: &UTCDateTime) -> String {
     let f = |jd: f64| {
-        let dt = UTCDateTime::from_julian_date(jd);
-        // TODO: for_julian_date()
-        let phase = MoonPhase::for_datetime(&dt);
+        let phase = MoonPhase::for_julian_date(jd);
         phase.fraction_illuminated
     };
 
@@ -480,15 +478,10 @@ fn graph_lunation_for_month(mcal: &MoonCalendar, date: &UTCDateTime) -> String {
 /// With this method, we only compute 160 phases (once for each of the
 /// 160 pixels, as there are two horizontal pixels per output char).
 fn pre_compute_yearly_graph_data(date: &UTCDateTime) -> (Vec<f64>, Vec<MoonPhase>) {
-    let f = |jd: f64| {
-        let dt = UTCDateTime::from_julian_date(jd);
-        // TODO: for_julian_date()
-        MoonPhase::for_datetime(&dt)
-    };
+    let f = |jd: f64| MoonPhase::for_julian_date(jd);
 
-    // TODO: for_ymdhms()
-    let start = UTCDateTime::from((date.year, 1, 1, 0, 0, 0)).to_julian_date();
-    let end = UTCDateTime::from((date.year, 12, 31, 23, 59, 59)).to_julian_date();
+    let start = UTCDateTime::from_ymdhms(date.year, 1, 1, 0, 0, 0).to_julian_date();
+    let end = UTCDateTime::from_ymdhms(date.year, 12, 31, 23, 59, 59).to_julian_date();
 
     Plot::compute_function(start, end, f64::from(GRAPH_WIDTH * 2), &f)
 }
@@ -768,8 +761,12 @@ mod tests {
     #[test]
     fn graph_regular() {
         let dt = UTCDateTime::from_julian_date(2_460_472.289_13);
-        // TODO for_julian_date() (check all ::for_datetime() for simplifications)
-        //  you should not have to manipulate UTCDateTime this much.
+        // TODO: Add `utc_datetime` property to `MoonCalendar`, then
+        //  use `for_julian_date()` instead of `for_datetime()`. The
+        //  user you should not have to manipulate UTCDateTime this
+        //  much. Then we can even simplify `render_moon_graphs()` to
+        //  not require a UTCDateTime parameter (same for
+        //  `graph_verbose()` test).
         let mcal = MoonCalendar::for_datetime(&dt);
 
         let render = render_moon_graphs(&mcal, &dt, false);
@@ -987,21 +984,21 @@ Sun ecliptic longitude 2024
     fn try_parse_datetime_timestamp() {
         let dt = try_parse_datetime("966600000").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((2000, 8, 18, 5, 12, 0, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(2000, 8, 18, 5, 12, 0, 0));
     }
 
     #[test]
     fn try_parse_datetime_julian_date() {
         let dt = try_parse_datetime("2460473.19655").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((2024, 6, 11, 16, 43, 2)));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(2024, 6, 11, 16, 43, 2));
     }
 
     #[test]
     fn try_parse_datetime_datetime() {
         let dt = try_parse_datetime("1964-12-20T04:35:00Z").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
     }
 
     #[test]
@@ -1015,21 +1012,21 @@ Sun ecliptic longitude 2024
     fn try_from_timestamp_positive() {
         let dt = try_from_timestamp("966600000").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((2000, 8, 18, 5, 12, 0, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(2000, 8, 18, 5, 12, 0, 0));
     }
 
     #[test]
     fn try_from_timestamp_zero() {
         let dt = try_from_timestamp("0").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1970, 1, 1, 4, 0, 0, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1970, 1, 1, 4, 0, 0, 0));
     }
 
     #[test]
     fn try_from_timestamp_negative() {
         let dt = try_from_timestamp("-58200600").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1968, 2, 27, 2, 9, 10, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1968, 2, 27, 2, 9, 10, 0));
     }
 
     #[test]
@@ -1050,54 +1047,54 @@ Sun ecliptic longitude 2024
     fn try_from_julian_date_regular() {
         let dt = try_from_julian_date("2460473.19655").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((2024, 6, 11, 16, 43, 2)));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(2024, 6, 11, 16, 43, 2));
     }
 
     #[test]
     fn try_from_julian_date_zero() {
         let dt = try_from_julian_date("0.0").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((-4712, 1, 1, 1, 12, 0, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(-4712, 1, 1, 1, 12, 0, 0));
     }
 
     #[test]
     fn try_from_datetime_regular() {
-        let dt = try_from_datetime("1964-12-20T04:35:00Z").unwrap();
+        let dt = try_from_iso_string("1964-12-20T04:35:00Z").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
     }
 
     #[test]
     fn try_from_datetime_implicit_utc() {
-        let dt = try_from_datetime("1964-12-20T04:35:00").unwrap();
+        let dt = try_from_iso_string("1964-12-20T04:35:00").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
     }
 
     #[test]
     fn try_from_datetime_offset() {
-        let dt = try_from_datetime("1964-12-20T05:35:00+01:00").unwrap();
+        let dt = try_from_iso_string("1964-12-20T05:35:00+01:00").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from((1964, 12, 20, 0, 4, 35, 0)));
+        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
     }
 
     #[test]
     fn try_from_datetime_error_invalid_string() {
-        let dt = try_from_datetime("1964-12-20T05-35-00");
+        let dt = try_from_iso_string("1964-12-20T05-35-00");
 
         assert!(dt.is_none());
     }
 
     #[test]
     fn from_date() {
-        let d = try_from_datetime("1938-07-15").unwrap();
+        let d = try_from_iso_string("1938-07-15").unwrap();
 
-        assert_eq!(d, UTCDateTime::from((1938, 7, 15, 5, 0, 0, 0)));
+        assert_eq!(d, UTCDateTime::from_ymddhms(1938, 7, 15, 5, 0, 0, 0));
     }
 
     #[test]
     fn from_date_error_invalid_string() {
-        let d = try_from_datetime("1938:07:15");
+        let d = try_from_iso_string("1938:07:15");
 
         assert!(d.is_none());
     }

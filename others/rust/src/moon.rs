@@ -793,7 +793,7 @@ impl ToJSON for MoonPhase {
 /// ```rust
 /// use moontool::moon::MoonCalendar;
 ///
-/// let mcal = MoonCalendar::for_ymdhms(2024, 5, 4, 10, 0, 0).unwrap();
+/// let mcal = MoonCalendar::for_ymdhms(2024, 5, 4, 10, 0, 0);
 ///
 /// assert_eq!(mcal.lunation, 1253);
 /// ```
@@ -805,6 +805,10 @@ impl ToJSON for MoonPhase {
 /// retrieved then local time won't appear in the output.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MoonCalendar {
+    // TODO?:
+    //  pub julian_date: f64,
+    //  pub timestamp: i64,
+    //  pub utc_datetime: UTCDateTime,
     /// Brown Lunation Number (BLN). Numbering begins at the first
     /// New Moon of 1923 (17 January 1923 at 2:41 UTC).
     pub lunation: i64,
@@ -823,15 +827,17 @@ pub struct MoonCalendar {
 // Global explanation in `struct MoonCalendar`'s docstring.
 #[allow(clippy::missing_errors_doc)]
 impl MoonCalendar {
-    pub fn for_datetime(datetime: &UTCDateTime) -> Result<Self, &'static str> {
+    #[must_use]
+    pub fn for_datetime(datetime: &UTCDateTime) -> Self {
         mooncal(datetime)
     }
 
     pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
         let datetime = iso_string.parse()?;
-        Self::for_datetime(&datetime)
+        Ok(Self::for_datetime(&datetime))
     }
 
+    #[must_use]
     pub fn for_ymdhms(
         year: i32,
         month: u32,
@@ -839,7 +845,7 @@ impl MoonCalendar {
         hour: u32,
         minute: u32,
         second: u32,
-    ) -> Result<Self, &'static str> {
+    ) -> Self {
         Self::for_datetime(&UTCDateTime {
             year,
             month,
@@ -853,11 +859,12 @@ impl MoonCalendar {
 
     pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
         let datetime = UTCDateTime::try_from(timestamp)?;
-        Self::for_datetime(&datetime)
+        Ok(Self::for_datetime(&datetime))
     }
 
     #[cfg(not(tarpaulin_include))]
-    pub fn now() -> Result<Self, &'static str> {
+    #[must_use]
+    pub fn now() -> Self {
         let now = UTCDateTime::now();
         Self::for_datetime(&now)
     }
@@ -990,7 +997,7 @@ fn moonphase(gm: &UTCDateTime) -> MoonPhase {
 
     MoonPhase {
         julian_date: jd,
-        timestamp: utcdatetime_to_timestamp(&gm).ok(),
+        timestamp: utcdatetime_to_timestamp(&gm).ok(), // TODO:  gm.to_timestamp().ok()
         utc_datetime: gm,
         age: phase_info.age,
         fraction_of_lunation: phase_info.phase,
@@ -1012,13 +1019,13 @@ fn moonphase(gm: &UTCDateTime) -> MoonPhase {
 }
 
 /// Populate `MoonCalendar` with info about lunation at given time.
-fn mooncal(gm: &UTCDateTime) -> Result<MoonCalendar, &'static str> {
+fn mooncal(gm: &UTCDateTime) -> MoonCalendar {
     let jd = jtime(gm);
 
-    let phasar = phasehunt(jd + 0.5)?;
+    let phasar = phasehunt(jd + 0.5);
     let lunation = ((((phasar.0 + 7.0) - LUNATBASE) / SYNMONTH).floor().trunc() as i64) + 1;
 
-    let mcal = MoonCalendar {
+    MoonCalendar {
         lunation,
         last_new_moon: phasar.0,
         last_new_moon_utc: jtouct(phasar.0),
@@ -1030,9 +1037,7 @@ fn mooncal(gm: &UTCDateTime) -> Result<MoonCalendar, &'static str> {
         last_quarter_utc: jtouct(phasar.3),
         next_new_moon: phasar.4,
         next_new_moon_utc: jtouct(phasar.4),
-    };
-
-    Ok(mcal)
+    }
 }
 
 /// Format the provided date and time in UTC format for screen display.
@@ -1180,10 +1185,11 @@ fn meanphase(sdate: f64, k: f64) -> f64 {
 /// and a phase selector (0.0, 0.25, 0.5, 0.75), obtain the true,
 /// corrected phase time.
 ///
-/// # Errors
+/// # Panics
 ///
-/// If [`truephase()`] called with invalid phase selector.
-fn truephase(mut k: f64, phase: f64) -> Result<f64, &'static str> {
+/// Panics if [`truephase()`] called with invalid phase selector. Phase
+/// selector should be one of these values: 0.0, 0.25, 0.5, 0.75.
+fn truephase(mut k: f64, phase: f64) -> f64 {
     let mut apcor = false;
 
     k += phase; // Add phase to new moon time
@@ -1238,18 +1244,15 @@ fn truephase(mut k: f64, phase: f64) -> Result<f64, &'static str> {
         }
         apcor = true;
     }
-    if !apcor {
-        // TODO: panic here instead. never happens, and simplifies api
-        return Err("TRUEPHASE called with invalid phase selector.");
-    }
-    Ok(pt)
+    assert!(apcor, "TRUEPHASE called with invalid phase selector.");
+    pt
 }
 
 /// Find time of phases of the moon which surround the current date.
 ///
 /// Five phases are found, starting and ending with the new moons which
 /// bound the current lunation.
-fn phasehunt(sdate: f64) -> Result<(f64, f64, f64, f64, f64), &'static str> {
+fn phasehunt(sdate: f64) -> (f64, f64, f64, f64, f64) {
     let mut adate = sdate - 45.0;
 
     let ymd = jyear(adate);
@@ -1273,18 +1276,13 @@ fn phasehunt(sdate: f64) -> Result<(f64, f64, f64, f64, f64), &'static str> {
         k1 = k2;
     }
 
-    // For some unfathomable reason, Tarpaulin considers
-    // `truephase(k1, 0.0)?` uncovered...
-    #[cfg(not(tarpaulin_include))]
-    let phases = (
-        truephase(k1, 0.0)?,
-        truephase(k1, 0.25)?,
-        truephase(k1, 0.5)?,
-        truephase(k1, 0.75)?,
-        truephase(k2, 0.0)?,
-    );
-
-    Ok(phases)
+    (
+        truephase(k1, 0.0),
+        truephase(k1, 0.25),
+        truephase(k1, 0.5),
+        truephase(k1, 0.75),
+        truephase(k2, 0.0),
+    )
 }
 
 /// Solve the equation of Kepler.
@@ -1730,6 +1728,7 @@ mod tests {
         let c = MoonPhase::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
         let d = MoonPhase::for_ymdhms(1968, 2, 27, 9, 10, 0);
         let e = MoonPhase::for_timestamp(-58_200_600).unwrap();
+        // TODO: let f = MoonPhase::for_julian_date()
 
         assert!([b, c, d, e].iter().all(|x| *x == a));
     }
@@ -1838,18 +1837,19 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn every_way_of_creating_mooncalendar_gives_same_result() {
-        let a = mooncal(&UTCDateTime::from((1968, 2, 27, 9, 10, 0))).unwrap();
-        let b = MoonCalendar::for_datetime(&UTCDateTime::from((1968, 2, 27, 9, 10, 0))).unwrap();
+        let a = mooncal(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
+        let b = MoonCalendar::for_datetime(&UTCDateTime::from((1968, 2, 27, 9, 10, 0)));
         let c = MoonCalendar::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
-        let d = MoonCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0).unwrap();
+        let d = MoonCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0);
         let e = MoonCalendar::for_timestamp(-58_200_600).unwrap();
+        // TODO: let f = MoonCalendar::for_julian_date()
 
         assert!([b, c, d, e].iter().all(|x| *x == a));
     }
 
     #[test]
     fn mooncalendar_regular() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0))).unwrap();
+        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
 
         assert_eq!(
             mcal,
@@ -1878,7 +1878,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
     #[test]
     fn mooncalendar_display() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0))).unwrap();
+        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
 
         assert_eq!(
             mcal.to_string(),
@@ -1897,7 +1897,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn mooncalendar_to_json() {
-        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0))).unwrap();
+        let mcal = mooncal(&UTCDateTime::from((1995, 3, 11, 1, 40, 0)));
 
         assert_eq!(
             mcal.to_json(),
@@ -2172,35 +2172,34 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn truephase_lt_0_01() {
-        let trueph = truephase(1537.0, 0.0).unwrap();
+        let trueph = truephase(1537.0, 0.0);
 
         assert_almost_eq!(trueph, 2_460_409.266_218_814);
     }
 
     #[test]
     fn truephase_abs_min_0_25_lt_0_01_and_lt_0_5() {
-        let trueph = truephase(1537.0, 0.25).unwrap();
+        let trueph = truephase(1537.0, 0.25);
 
         assert_almost_eq!(trueph, 2_460_416.301_725_250_7);
     }
 
     #[test]
     fn truephase_abs_min_0_75_lt_0_01_and_gte_0_5() {
-        let trueph = truephase(1537.0, 0.75).unwrap();
+        let trueph = truephase(1537.0, 0.75);
 
         assert_almost_eq!(trueph, 2_460_431.977_685_604_2);
     }
 
     #[test]
+    #[should_panic(expected = "TRUEPHASE called with invalid phase selector.")]
     fn truephase_invalid_phase_selector() {
-        let trueph = truephase(1537.0, 1.0);
-
-        assert!(trueph.is_err());
+        let _ = truephase(1537.0, 1.0);
     }
 
     #[test]
     fn phasehunt_regular() {
-        let phasar = phasehunt(2_449_818.3).unwrap();
+        let phasar = phasehunt(2_449_818.3);
 
         assert_eq!(
             phasar,

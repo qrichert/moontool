@@ -405,14 +405,7 @@ fn draw_apollo_11_commemorative_dot(canvas: &mut TextCanvas, offset_x: usize, of
 }
 
 #[cfg(not(tarpaulin_include))]
-fn graph_moon_data(mcal: &Result<MoonCalendar, &'static str>, date: &UTCDateTime, verbose: bool) {
-    let mcal = match mcal {
-        Ok(mcal) => mcal,
-        Err(error) => {
-            eprintln!("{error}");
-            return;
-        }
-    };
+fn graph_moon_data(mcal: &MoonCalendar, date: &UTCDateTime, verbose: bool) {
     print!("{}", render_moon_graphs(mcal, date, verbose));
 }
 
@@ -456,6 +449,7 @@ fn render_moon_graphs(mcal: &MoonCalendar, date: &UTCDateTime, verbose: bool) ->
 fn graph_lunation_for_month(mcal: &MoonCalendar, date: &UTCDateTime) -> String {
     let f = |jd: f64| {
         let dt = UTCDateTime::from_julian_date(jd);
+        // TODO: for_julian_date()
         let phase = MoonPhase::for_datetime(&dt);
         phase.fraction_illuminated
     };
@@ -488,6 +482,7 @@ fn graph_lunation_for_month(mcal: &MoonCalendar, date: &UTCDateTime) -> String {
 fn pre_compute_yearly_graph_data(date: &UTCDateTime) -> (Vec<f64>, Vec<MoonPhase>) {
     let f = |jd: f64| {
         let dt = UTCDateTime::from_julian_date(jd);
+        // TODO: for_julian_date()
         MoonPhase::for_datetime(&dt)
     };
 
@@ -510,22 +505,16 @@ fn graph_data_for_year(x: &[f64], y: &[f64], date: &UTCDateTime) -> String {
 }
 
 #[cfg(not(tarpaulin_include))]
-fn print_json(mphase: &MoonPhase, mcal: &Result<MoonCalendar, &'static str>) {
+fn print_json(mphase: &MoonPhase, mcal: &MoonCalendar) {
     let mphase = mphase.to_json();
-    let mcal = if let Ok(mcal) = mcal {
-        mcal.to_json()
-    } else {
-        String::from("{}")
-    };
+    let mcal = mcal.to_json();
     println!(r#"{{"phase":{mphase},"calendar":{mcal}}}"#);
 }
 
 #[cfg(not(tarpaulin_include))]
-fn print_pretty(mphase: &MoonPhase, mcal: &Result<MoonCalendar, &'static str>) {
+fn print_pretty(mphase: &MoonPhase, mcal: &MoonCalendar) {
     println!("\n{mphase}\n");
-    if let Ok(mcal) = mcal {
-        println!("{mcal}\n");
-    }
+    println!("{mcal}\n");
 }
 
 #[cfg(test)]
@@ -779,7 +768,9 @@ mod tests {
     #[test]
     fn graph_regular() {
         let dt = UTCDateTime::from_julian_date(2_460_472.289_13);
-        let mcal = MoonCalendar::for_datetime(&dt).unwrap();
+        // TODO for_julian_date() (check all ::for_datetime() for simplifications)
+        //  you should not have to manipulate UTCDateTime this much.
+        let mcal = MoonCalendar::for_datetime(&dt);
 
         let render = render_moon_graphs(&mcal, &dt, false);
 
@@ -819,7 +810,7 @@ Moon phases 2024
     #[test]
     fn graph_verbose() {
         let dt = UTCDateTime::from_julian_date(2_460_472.289_13);
-        let mcal = MoonCalendar::for_datetime(&dt).unwrap();
+        let mcal = MoonCalendar::for_datetime(&dt);
 
         let render = render_moon_graphs(&mcal, &dt, true);
 

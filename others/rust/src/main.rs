@@ -178,7 +178,7 @@ fn for_datetime(datetime: &UTCDateTime, config: &Config) {
     let mcal = MoonCalendar::for_datetime(datetime);
 
     if config.graph {
-        graph_moon_data(&mcal, &mphase.utc_datetime, config.verbose);
+        graph_moon_data(&mcal, config.verbose);
         return;
     }
 
@@ -405,14 +405,16 @@ fn draw_apollo_11_commemorative_dot(canvas: &mut TextCanvas, offset_x: usize, of
 }
 
 #[cfg(not(tarpaulin_include))]
-fn graph_moon_data(mcal: &MoonCalendar, date: &UTCDateTime, verbose: bool) {
-    print!("{}", render_moon_graphs(mcal, date, verbose));
+fn graph_moon_data(mcal: &MoonCalendar, verbose: bool) {
+    print!("{}", render_moon_graphs(mcal, verbose));
 }
 
-fn render_moon_graphs(mcal: &MoonCalendar, date: &UTCDateTime, verbose: bool) -> String {
+fn render_moon_graphs(mcal: &MoonCalendar, verbose: bool) -> String {
+    let date = &mcal.utc_datetime;
+
     let mut output = String::new();
 
-    writeln!(output, "\n{}", graph_lunation_for_month(mcal, date)).unwrap();
+    writeln!(output, "\n{}", graph_lunation_for_month(mcal)).unwrap();
 
     let (x, y_phase) = pre_compute_yearly_graph_data(date);
 
@@ -446,7 +448,7 @@ fn render_moon_graphs(mcal: &MoonCalendar, date: &UTCDateTime, verbose: bool) ->
     output
 }
 
-fn graph_lunation_for_month(mcal: &MoonCalendar, date: &UTCDateTime) -> String {
+fn graph_lunation_for_month(mcal: &MoonCalendar) -> String {
     let f = |jd: f64| {
         let phase = MoonPhase::for_julian_date(jd);
         phase.fraction_illuminated
@@ -460,8 +462,9 @@ fn graph_lunation_for_month(mcal: &MoonCalendar, date: &UTCDateTime) -> String {
 
     Plot::line(&mut canvas, &x, &y);
 
+    let date = mcal.utc_datetime.to_julian_date();
     canvas.set_color(Color::new().bright_red());
-    Plot::stroke_line_at_x(&mut canvas, date.to_julian_date(), &x);
+    Plot::stroke_line_at_x(&mut canvas, date, &x);
 
     format!("{canvas}🌑      🌒         🌓         🌔         🌕        🌖       🌗        🌘      🌑\n")
 }
@@ -760,16 +763,9 @@ mod tests {
 
     #[test]
     fn graph_regular() {
-        let dt = UTCDateTime::from_julian_date(2_460_472.289_13);
-        // TODO: Add `utc_datetime` property to `MoonCalendar`, then
-        //  use `for_julian_date()` instead of `for_datetime()`. The
-        //  user you should not have to manipulate UTCDateTime this
-        //  much. Then we can even simplify `render_moon_graphs()` to
-        //  not require a UTCDateTime parameter (same for
-        //  `graph_verbose()` test).
-        let mcal = MoonCalendar::for_datetime(&dt);
+        let mcal = MoonCalendar::for_julian_date(2_460_472.289_13);
 
-        let render = render_moon_graphs(&mcal, &dt, false);
+        let render = render_moon_graphs(&mcal, false);
 
         assert!(render.contains("\x1b[0;91m"));
         assert!(render.contains("\x1b[0m"));
@@ -806,10 +802,9 @@ Moon phases 2024
 
     #[test]
     fn graph_verbose() {
-        let dt = UTCDateTime::from_julian_date(2_460_472.289_13);
-        let mcal = MoonCalendar::for_datetime(&dt);
+        let mcal = MoonCalendar::for_julian_date(2_460_472.289_13);
 
-        let render = render_moon_graphs(&mcal, &dt, true);
+        let render = render_moon_graphs(&mcal, true);
 
         assert!(render.contains("\x1b[0;91m"));
         assert!(render.contains("\x1b[0m"));

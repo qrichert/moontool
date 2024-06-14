@@ -378,11 +378,7 @@ impl ToJSON for MoonPhase {
             self.timestamp
                 .map_or_else(|| String::from("null"), |v| v.to_string())
         );
-        write_to!(
-            json,
-            r#""utc_datetime":"{}","#,
-            self.utc_datetime.to_string()
-        );
+        write_to!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
         write_to!(json, r#""age":{},"#, self.age);
         write_to!(
             json,
@@ -460,10 +456,9 @@ impl ToJSON for MoonPhase {
 /// retrieved then local time won't appear in the output.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MoonCalendar {
-    // TODO?:
-    //  pub julian_date: f64,
-    //  pub timestamp: i64,
-    //  pub utc_datetime: UTCDateTime,
+    pub julian_date: f64,
+    pub timestamp: Option<i64>,
+    pub utc_datetime: UTCDateTime,
     /// Brown Lunation Number (BLN). Numbering begins at the first
     /// New Moon of 1923 (17 January 1923 at 2:41 UTC).
     pub lunation: i64,
@@ -527,7 +522,6 @@ impl MoonCalendar {
         Ok(Self::for_datetime(&datetime))
     }
 
-    // TODO: test
     #[must_use]
     pub fn for_julian_date(julian_date: f64) -> Self {
         let datetime = UTCDateTime::from_julian_date(julian_date);
@@ -576,37 +570,25 @@ impl ToJSON for MoonCalendar {
     fn to_json(&self) -> String {
         let mut json = String::new();
         write_to!(json, "{{");
+        write_to!(json, r#""julian_date":{},"#, self.julian_date);
+        write_to!(
+            json,
+            r#""timestamp":{},"#,
+            self.timestamp
+                .map_or_else(|| String::from("null"), |v| v.to_string())
+        );
+        write_to!(json, r#""utc_datetime":{},"#, self.utc_datetime);
         write_to!(json, r#""lunation":{},"#, self.lunation);
         write_to!(json, r#""last_new_moon":{},"#, self.last_new_moon);
-        write_to!(
-            json,
-            r#""last_new_moon_utc":"{}","#,
-            self.last_new_moon_utc.to_string()
-        );
+        write_to!(json, r#""last_new_moon_utc":"{}","#, self.last_new_moon_utc);
         write_to!(json, r#""first_quarter":{},"#, self.first_quarter);
-        write_to!(
-            json,
-            r#""first_quarter_utc":"{}","#,
-            self.first_quarter_utc.to_string()
-        );
+        write_to!(json, r#""first_quarter_utc":"{}","#, self.first_quarter_utc);
         write_to!(json, r#""full_moon":{},"#, self.full_moon);
-        write_to!(
-            json,
-            r#""full_moon_utc":"{}","#,
-            self.full_moon_utc.to_string()
-        );
+        write_to!(json, r#""full_moon_utc":"{}","#, self.full_moon_utc);
         write_to!(json, r#""last_quarter":{},"#, self.last_quarter);
-        write_to!(
-            json,
-            r#""last_quarter_utc":"{}","#,
-            self.last_quarter_utc.to_string()
-        );
+        write_to!(json, r#""last_quarter_utc":"{}","#, self.last_quarter_utc);
         write_to!(json, r#""next_new_moon":{},"#, self.next_new_moon);
-        write_to!(
-            json,
-            r#""next_new_moon_utc":"{}""#,
-            self.next_new_moon_utc.to_string()
-        );
+        write_to!(json, r#""next_new_moon_utc":"{}""#, self.next_new_moon_utc);
         write_to!(json, "}}");
         json
     }
@@ -690,7 +672,20 @@ fn mooncal(gm: &UTCDateTime) -> MoonCalendar {
     let phasar = phasehunt(jd + 0.5);
     let lunation = ((((phasar.0 + 7.0) - LUNATBASE) / SYNMONTH).floor().trunc() as i64) + 1;
 
+    let gm = UTCDateTime {
+        year: gm.year,
+        month: gm.month,
+        day: gm.day,
+        weekday: jwday(jd).unsigned_abs(),
+        hour: gm.hour,
+        minute: gm.minute,
+        second: gm.second,
+    };
+
     MoonCalendar {
+        julian_date: jd,
+        timestamp: gm.to_timestamp().ok(),
+        utc_datetime: gm,
         lunation,
         last_new_moon: phasar.0,
         last_new_moon_utc: jtouct(phasar.0),
@@ -1269,6 +1264,9 @@ Sun subtends:\t\t0.5367 degrees.\
         assert_eq!(
             mcal,
             MoonCalendar {
+                julian_date: 2_449_787.569_444_444_5,
+                timestamp: Some(794_886_000),
+                utc_datetime: UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0),
                 lunation: 893,
                 last_new_moon: 2_449_777.993_024_320_3,
                 last_new_moon_utc: UTCDateTime::from_ymddhms(1995, 3, 1, 3, 11, 49, 57),
@@ -1316,8 +1314,16 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
         assert_eq!(
             mcal.to_json(),
-            r#"{"lunation":893,"last_new_moon":2449777.9930243203,"last_new_moon_utc":"1995-03-01T11:49:57Z","first_quarter":2449785.9259425676,"first_quarter_utc":"1995-03-09T10:13:21Z","full_moon":2449793.5607311586,"full_moon_utc":"1995-03-17T01:27:27Z","last_quarter":2449800.3410721812,"last_quarter_utc":"1995-03-23T20:11:09Z","next_new_moon":2449807.5908233593,"next_new_moon_utc":"1995-03-31T02:10:47Z"}"#,
+            r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"utc_datetime":1995-03-11T01:40:00Z,"lunation":893,"last_new_moon":2449777.9930243203,"last_new_moon_utc":"1995-03-01T11:49:57Z","first_quarter":2449785.9259425676,"first_quarter_utc":"1995-03-09T10:13:21Z","full_moon":2449793.5607311586,"full_moon_utc":"1995-03-17T01:27:27Z","last_quarter":2449800.3410721812,"last_quarter_utc":"1995-03-23T20:11:09Z","next_new_moon":2449807.5908233593,"next_new_moon_utc":"1995-03-31T02:10:47Z"}"#,
         );
+    }
+
+    #[test]
+    fn mooncalendar_to_json_timestamp_error() {
+        let mut mcal = mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+        mcal.timestamp = None;
+
+        assert!(mcal.to_json().contains(r#""timestamp":null,"#));
     }
 
     // Moon

@@ -74,6 +74,9 @@ typedef struct {
  * ```
  */
 typedef struct {
+    double julian_date;
+    time_t timestamp;
+    struct tm utc_datetime;
     /**
      * Brown Lunation Number (BLN). Numbering begins at the first
      * New Moon of 1923 (17 January 1923 at 2:41 UTC).

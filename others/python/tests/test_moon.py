@@ -83,7 +83,7 @@ class TestUtils(unittest.TestCase):
 
 class TestCustomAPI(unittest.TestCase):
     def test_every_way_of_creating_moonphase_gives_same_result(self) -> None:
-        a = moonphase(dt.datetime(1968, 2, 27, 9, 10, 0))
+        a = moonphase(dt.datetime(1968, 2, 27, 9, 10, 0, tzinfo=dt.UTC))
         b = MoonPhase.for_datetime(dt.datetime(1968, 2, 27, 9, 10, 0, tzinfo=dt.UTC))
         c = MoonPhase.for_timestamp(-58200600)
 
@@ -139,7 +139,7 @@ class TestCustomAPI(unittest.TestCase):
         )
 
     def test_every_way_of_creating_mooncalendar_gives_same_result(self) -> None:
-        a = mooncal(dt.datetime(1968, 2, 27, 9, 10, 0))
+        a = mooncal(dt.datetime(1968, 2, 27, 9, 10, 0, tzinfo=dt.UTC))
         b = MoonCalendar.for_datetime(dt.datetime(1968, 2, 27, 9, 10, 0, tzinfo=dt.UTC))
         c = MoonCalendar.for_timestamp(-58200600)
 
@@ -151,6 +151,9 @@ class TestCustomAPI(unittest.TestCase):
         self.assertEqual(
             mcal,
             MoonCalendar(
+                julian_date=2449787.5694444445,
+                timestamp=794886000,
+                utc_datetime=dt.datetime(1995, 3, 11, 1, 40, 0, tzinfo=dt.UTC),
                 lunation=893,
                 last_new_moon=2449777.9930243203,
                 last_new_moon_utc=dt.datetime(1995, 3, 1, 11, 49, 57, tzinfo=dt.UTC),

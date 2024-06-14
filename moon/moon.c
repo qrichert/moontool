@@ -381,6 +381,10 @@ int mooncal(MoonCalendar *mcal, const time_t *timestamp)
     phasehunt(jd + 0.5, phasar);
     lunation = (long) floor(((phasar[0] + 7) - lunatbase) / synmonth) + 1;
 
+    mcal->julian_date = jd;
+    mcal->timestamp = (time_t) t;
+    tmcpy(&mcal->utc_datetime, gm);
+
     mcal->lunation = lunation;
 
     mcal->last_new_moon = phasar[0];
@@ -458,6 +462,9 @@ void print_mooncal_debug(const MoonCalendar* mcal)
         }
     }
 
+    char utc_datetime[80];
+    fmt_phase_time(&mcal->utc_datetime, utc_datetime);
+
     char last_new_moon_utc[80];
     fmt_phase_time(&mcal->last_new_moon_utc, last_new_moon_utc);
 
@@ -474,6 +481,9 @@ void print_mooncal_debug(const MoonCalendar* mcal)
     fmt_phase_time(&mcal->next_new_moon_utc, next_new_moon_utc);
 
     printf("MoonCalendar {\n");
+    printf("    julian_date: %f,\n", mcal->julian_date);
+    printf("    timestamp: %ld,\n", mcal->timestamp);
+    printf("    utc_datetime: %s,\n", utc_datetime);
     printf("    lunation: %ld,\n", mcal->lunation);
     printf("    last_new_moon: %f,\n", mcal->last_new_moon);
     printf("    last_new_moon_utc: %s,\n", last_new_moon_utc);

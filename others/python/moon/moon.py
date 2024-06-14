@@ -253,6 +253,9 @@ class MoonCalendar:
             failure.
     """
 
+    julian_date: float
+    timestamp: int
+    utc_datetime: dt.datetime
     lunation: int
     last_new_moon: float
     last_new_moon_utc: dt.datetime
@@ -363,6 +366,9 @@ def mooncal(gm: dt.datetime) -> MoonCalendar:
     phasar: tuple[float, float, float, float, float] = phasehunt(jd + 0.5)
     lunation: int = math.floor(((phasar[0] + 7) - LUNATBASE) / SYNMONTH) + 1
     mcal: MoonCalendar = MoonCalendar(
+        julian_date=jd,
+        timestamp=int(gm.timestamp()),
+        utc_datetime=gm,
         lunation=lunation,
         last_new_moon=phasar[0],
         last_new_moon_utc=jtouct(phasar[0]),

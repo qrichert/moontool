@@ -194,6 +194,16 @@ void test_mooncalendar_regular(void) {
 
     mooncal(&mcal, &timestamp);
 
+    assert_almost_equal(mcal.julian_date, 2449787.5694444445);
+    assert(mcal.timestamp == 794886000);
+    assert(mcal.utc_datetime.tm_year == 95);
+    assert(mcal.utc_datetime.tm_mon == 2);
+    assert(mcal.utc_datetime.tm_mday == 11);
+    assert(mcal.utc_datetime.tm_wday == 6);
+    assert(mcal.utc_datetime.tm_hour == 1);
+    assert(mcal.utc_datetime.tm_min == 40);
+    assert(mcal.utc_datetime.tm_sec == 0);
+
     assert(mcal.lunation == 893);
     assert_almost_equal(mcal.last_new_moon, 2449777.9930243203);
     assert(mcal.last_new_moon_utc.tm_year == 95);

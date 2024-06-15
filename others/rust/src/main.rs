@@ -1,6 +1,8 @@
 //! Command Line Interface for moon.rs.
 
-use moontool::moon::{ForDateTime, LocalDateTime, MoonCalendar, MoonPhase, ToJSON, UTCDateTime};
+use moontool::moon::{
+    ForDateTime, LocalDateTime, MoonCalendar, MoonPhase, SunCalendar, ToJSON, UTCDateTime,
+};
 use std::fmt::Write;
 use std::{env, process};
 use textcanvas::{charts::Plot, Color, TextCanvas};
@@ -117,7 +119,7 @@ usage: {bin} [-h] [] [DATETIME] [±TIMESTAMP]
 optional arguments:
   -h, --help            show this help message and exit
   -v, --version         show the version and exit
-  -vv, --verbose        verbose output (graph)
+  -vv, --verbose        verbose output
   --moon                show render of Moon
   --graph               graph of lunation
   --json                output as json
@@ -182,12 +184,18 @@ fn for_datetime(datetime: &UTCDateTime, config: &Config) {
         return;
     }
 
+    let scal = if config.verbose {
+        Some(SunCalendar::for_datetime(datetime))
+    } else {
+        None
+    };
+
     if config.json {
-        print_json(&mphase, &mcal);
+        print_json(&mphase, &mcal, &scal);
         return;
     }
 
-    print_pretty(&mphase, &mcal);
+    print_pretty(&mphase, &mcal, &scal);
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -501,16 +509,28 @@ fn graph_data_for_year(x: &[f64], y: &[f64], date: &UTCDateTime) -> String {
 }
 
 #[cfg(not(tarpaulin_include))]
-fn print_json(mphase: &MoonPhase, mcal: &MoonCalendar) {
+fn print_json(mphase: &MoonPhase, mcal: &MoonCalendar, scal: &Option<SunCalendar>) {
     let mphase = mphase.to_json();
     let mcal = mcal.to_json();
-    println!(r#"{{"phase":{mphase},"calendar":{mcal}}}"#);
+
+    print!(r#"{{"phase":{mphase},"calendar":{mcal}"#);
+
+    if let Some(scal) = scal {
+        let scal = scal.to_json();
+        print!(r#","sun_calendar":{scal}"#);
+    }
+
+    println!(r#"}}"#);
 }
 
 #[cfg(not(tarpaulin_include))]
-fn print_pretty(mphase: &MoonPhase, mcal: &MoonCalendar) {
+fn print_pretty(mphase: &MoonPhase, mcal: &MoonCalendar, scal: &Option<SunCalendar>) {
     println!("\n{mphase}\n");
     println!("{mcal}\n");
+
+    if let Some(scal) = scal {
+        println!("{scal}\n");
+    }
 }
 
 #[cfg(test)]

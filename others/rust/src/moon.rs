@@ -119,6 +119,7 @@ const MOONICN: [&str; 8] = [
     "\u{1f318}", // 🌘
 ];
 
+/// Compute values for a given date and time.
 pub trait ForDateTime: Sized {
     #[cfg(not(tarpaulin_include))]
     #[must_use]
@@ -130,17 +131,21 @@ pub trait ForDateTime: Sized {
     #[must_use]
     fn for_datetime(datetime: &UTCDateTime) -> Self;
 
+    /// Shortcut for date, with time set to midnight.
+    #[must_use]
+    fn for_ymd(year: i32, month: u32, day: u32) -> Self {
+        Self::for_ymdhms(year, month, day, 0, 0, 0)
+    }
+
     #[must_use]
     fn for_ymdhms(year: i32, month: u32, day: u32, hour: u32, minute: u32, second: u32) -> Self {
-        Self::for_datetime(&UTCDateTime {
-            year,
-            month,
-            day,
-            weekday: 99, // This is fine, it's not used in calculations.
-            hour,
-            minute,
-            second,
-        })
+        let datetime = UTCDateTime::from_ymddhms(
+            year, month, day,
+            // This is fine, weekday is not used in calculations. Fixing
+            // it to some value prevents needless extra computations.
+            99, hour, minute, second,
+        );
+        Self::for_datetime(&datetime)
     }
 
     /// # Errors
@@ -165,6 +170,20 @@ pub trait ForDateTime: Sized {
     fn for_julian_date(julian_date: f64) -> Self {
         let datetime = UTCDateTime::from_julian_date(julian_date);
         Self::for_datetime(&datetime)
+    }
+}
+
+/// Compute values for a given year.
+///
+/// For some data it makes sense to only provide a year. For example,
+/// [`SunCalendar`] computes the equinoxes and solstices of a year;
+/// full date and time values are not needed, nor considered in the
+/// calculations.
+pub trait ForYear: ForDateTime {
+    /// Shortcut for year, on January 1st at midnight.
+    #[must_use]
+    fn for_year(year: i32) -> Self {
+        Self::for_ymd(year, 1, 1)
     }
 }
 
@@ -207,7 +226,7 @@ struct PhaseInfo {
     sun_angular_diameter: f64,
 }
 
-/// Information about the phase of the Moon at given time.
+/// Information about the phase of the Moon, at given time.
 ///
 /// # Examples
 ///
@@ -237,9 +256,9 @@ pub struct MoonPhase {
     pub fraction_illuminated: f64,
     /// Angular distance around the geocentric ecliptic (λ).
     ///
-    /// The _ecliptic_ (or _ecliptic plane_) is the orbital plane of Earth
-    /// around the Sun. Its direction (0°) is towards the March (vernal)
-    /// equinox.
+    /// The _ecliptic_ (or _ecliptic plane_) is the orbital plane of
+    /// Earth around the Sun. Its direction (0°) is towards the March
+    /// (vernal) equinox.
     ///
     /// > By definition, the times of New Moon, First Quarter, Full
     /// > Moon, and Last Quarter are the times at which the excess of
@@ -254,9 +273,9 @@ pub struct MoonPhase {
     ///
     /// Typically, between 5.145° and -5.145°.
     ///
-    /// The _ecliptic_ (or _ecliptic plane_) is the orbital plane of Earth
-    /// around the Sun. Its direction (0°) is towards the March (vernal)
-    /// equinox.
+    /// The _ecliptic_ (or _ecliptic plane_) is the orbital plane of
+    /// Earth around the Sun. Its direction (0°) is towards the March
+    /// (vernal) equinox.
     pub ecliptic_latitude: f64,
     pub parallax: f64,
     pub distance_to_earth_km: f64,
@@ -265,13 +284,13 @@ pub struct MoonPhase {
     pub subtends: f64,
     /// Sun's angular distance around the geocentric ecliptic (λ).
     ///
-    /// The _ecliptic_ (or _ecliptic plane_) is the orbital plane of Earth
-    /// around the Sun. Its direction (0°) is towards the March (vernal)
-    /// equinox.
+    /// The _ecliptic_ (or _ecliptic plane_) is the orbital plane of
+    /// Earth around the Sun. Its direction (0°) is towards the March
+    /// (vernal) equinox.
     ///
-    /// > By definition, the times of the equinoxes and solstices are the
-    /// > instants when the apparent geocentric longitude of the Sun is an
-    /// > integer multiple of 90 degrees.
+    /// > By definition, the times of the equinoxes and solstices are
+    /// > the instants when the apparent geocentric longitude of the Sun
+    /// > is an integer multiple of 90 degrees.
     /// >
     /// > - 0° for the March equinox,
     /// > - 90° for the June solstice,
@@ -499,9 +518,7 @@ impl ForDateTime for MoonCalendar {
     //  fn new_moons_for_year(year: i32) -> Vec<UTCDateTime> {}
     //  fn full_moons_for_year(year: i32) -> Vec<UTCDateTime> {}
     //  With Moon names, Harvest Moon, and Blue Moons.
-    //
-    // TODO: Equinoxes (EquinoxCalendar, for Harvest Moon)
-    //  "Algorithm as given in Meeus, Astronomical Algorithms, Chapter 27, page 177"
+    //  (SunCalendar, for Harvest Moon)
 }
 
 impl fmt::Display for MoonCalendar {
@@ -544,7 +561,7 @@ impl ToJSON for MoonCalendar {
             self.timestamp
                 .map_or_else(|| String::from("null"), |v| v.to_string())
         );
-        write_to!(json, r#""utc_datetime":{},"#, self.utc_datetime);
+        write_to!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
         write_to!(json, r#""lunation":{},"#, self.lunation);
         write_to!(json, r#""last_new_moon":{},"#, self.last_new_moon);
         write_to!(json, r#""last_new_moon_utc":"{}","#, self.last_new_moon_utc);
@@ -559,6 +576,268 @@ impl ToJSON for MoonCalendar {
         write_to!(json, "}}");
         json
     }
+}
+
+/// Information about equinoxes and solstices of a given year.
+///
+/// > By definition, the times of the equinoxes and solstices are the
+/// > instants when the apparent geocentric longitude of the Sun (that
+/// > is, calculated by including the effects of aberration and
+/// > nutation) is an integer multiple of 90 degrees. (Because the
+/// > latitude of the Sun is not exactly zero, the declination of the
+/// > Sun is not exactly zero at the instant of an equinox.)
+/// >
+/// > — Jean Meeus, Astronomical Algorithms, Chapter 27, page 177
+#[derive(Clone, Debug, PartialEq)]
+pub struct SunCalendar {
+    pub julian_date: f64,
+    pub timestamp: Option<i64>,
+    pub utc_datetime: UTCDateTime,
+    /// March equinox.
+    ///
+    /// Beginning of astronomical spring.
+    ///
+    /// Around March 20, also called Vernal or Spring equinox in the
+    /// Northern hemisphere.
+    ///
+    /// The day of the year when the Sun crosses the equator moving from
+    /// the Southern hemisphere to the Northern hemisphere.
+    ///
+    /// Approximately equal length of day and night.
+    pub march_equinox: f64,
+    pub march_equinox_utc: UTCDateTime,
+    /// June solstice.
+    ///
+    /// Beginning of astronomical summer.
+    ///
+    /// Around June 20–22, also called Estival or Summer solstice in the
+    /// Northern hemisphere.
+    ///
+    /// The longest day of the year when the Sun is at its highest point
+    /// in the sky at noon, marking the beginning of summer in the
+    /// Northern hemisphere.
+    ///
+    /// Longest day and shortest night of the year.
+    pub june_solstice: f64,
+    pub june_solstice_utc: UTCDateTime,
+    /// September equinox.
+    ///
+    /// Beginning of astronomical autumn.
+    ///
+    /// Around September 23, also called Autumnal or Autumn equinox in
+    /// the Northern hemisphere.
+    ///
+    /// The day of the year when the Sun crosses the equator moving from
+    /// the Northern hemisphere to the Southern hemisphere.
+    ///
+    /// Approximately equal length of day and night.
+    pub september_equinox: f64,
+    pub september_equinox_utc: UTCDateTime,
+    /// December solstice.
+    ///
+    /// Beginning of astronomical winter.
+    ///
+    /// Around December 20-22, also called Hibernal or Winter solstice
+    /// in the Northern hemisphere.
+    ///
+    /// The shortest day of the year when the Sun is at its lowest point
+    /// in the sky at noon, marking the beginning of winter in the
+    /// Northern hemisphere.
+    ///
+    /// Shortest day and longest night of the year.
+    pub december_solstice: f64,
+    pub december_solstice_utc: UTCDateTime,
+}
+
+impl MarkerBase for SunCalendar {}
+
+impl ForDateTime for SunCalendar {
+    fn for_datetime(datetime: &UTCDateTime) -> Self {
+        suncal(datetime)
+    }
+}
+
+impl ForYear for SunCalendar {}
+
+impl fmt::Display for SunCalendar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Sun Calendar\n============\n")?;
+        writeln!(
+            f,
+            "March equinox:\t\t{}",
+            fmt_phase_time(&self.march_equinox_utc)
+        )?;
+        writeln!(
+            f,
+            "June solstice:\t\t{}",
+            fmt_phase_time(&self.june_solstice_utc)
+        )?;
+        writeln!(
+            f,
+            "September equinox:\t{}",
+            fmt_phase_time(&self.september_equinox_utc)
+        )?;
+        write!(
+            f,
+            "December solstice:\t{}",
+            fmt_phase_time(&self.december_solstice_utc)
+        )
+    }
+}
+
+impl ToJSON for SunCalendar {
+    fn to_json(&self) -> String {
+        let mut json = String::new();
+        write_to!(json, "{{");
+        write_to!(json, r#""julian_date":{},"#, self.julian_date);
+        write_to!(
+            json,
+            r#""timestamp":{},"#,
+            self.timestamp
+                .map_or_else(|| String::from("null"), |v| v.to_string())
+        );
+        write_to!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
+        write_to!(json, r#""march_equinox":{},"#, self.march_equinox);
+        write_to!(json, r#""march_equinox_utc":"{}","#, self.march_equinox_utc);
+        write_to!(json, r#""june_solstice":{},"#, self.june_solstice);
+        write_to!(json, r#""june_solstice_utc":"{}","#, self.june_solstice_utc);
+        write_to!(json, r#""september_equinox":{},"#, self.september_equinox);
+        write_to!(
+            json,
+            r#""september_equinox_utc":"{}","#,
+            self.september_equinox_utc
+        );
+        write_to!(json, r#""december_solstice":{},"#, self.december_solstice);
+        write_to!(
+            json,
+            r#""december_solstice_utc":"{}""#,
+            self.december_solstice_utc
+        );
+        write_to!(json, "}}");
+        json
+    }
+}
+
+fn suncal(gm: &UTCDateTime) -> SunCalendar {
+    let march_equinox = solarevent(gm.year, SolarEvent::MarchEquinox);
+    let june_solstice = solarevent(gm.year, SolarEvent::JuneSolstice);
+    let september_equinox = solarevent(gm.year, SolarEvent::SeptemberEquinox);
+    let december_solstice = solarevent(gm.year, SolarEvent::DecemberSolstice);
+
+    let jd = gm.to_julian_date();
+
+    // TODO: maybe extract this, we've got it 3 time already,
+    //  and there will be more with year full/new moons calendars.
+    let gm = UTCDateTime {
+        year: gm.year,
+        month: gm.month,
+        day: gm.day,
+        weekday: jwday(jd).unsigned_abs(),
+        hour: gm.hour,
+        minute: gm.minute,
+        second: gm.second,
+    };
+
+    SunCalendar {
+        julian_date: jd,
+        timestamp: gm.to_timestamp().ok(),
+        utc_datetime: gm,
+        march_equinox,
+        march_equinox_utc: UTCDateTime::from_julian_date(march_equinox),
+        june_solstice,
+        june_solstice_utc: UTCDateTime::from_julian_date(june_solstice),
+        september_equinox,
+        september_equinox_utc: UTCDateTime::from_julian_date(september_equinox),
+        december_solstice,
+        december_solstice_utc: UTCDateTime::from_julian_date(december_solstice),
+    }
+}
+
+#[derive(Copy, Clone)]
+enum SolarEvent {
+    MarchEquinox,
+    JuneSolstice,
+    SeptemberEquinox,
+    DecemberSolstice,
+}
+
+/// Calculate equinoxes and solstices of a year as Julian dates.
+///
+/// Algorithm as given in Meeus, Astronomical Algorithms, Chapter 27,
+/// page 177.
+#[rustfmt::skip]
+#[allow(non_snake_case)]
+fn solarevent(year: i32, event: SolarEvent) -> f64 {
+    // For years -1000 to +1000, but can be used for several centuries
+    // before -1000 with only small errors.
+    let jde0 = if year <= 1000 {
+        let Y = f64::from(year) / 1000.0;
+        let Y2 = Y * Y;
+        let Y3 = Y2 * Y;
+        let Y4 = Y3 * Y;
+
+        match event {
+            SolarEvent::MarchEquinox =>
+                1_721_139.291_89 + 365_242.137_40 * Y + 0.061_34 * Y2 + 0.001_11 * Y3 - 0.000_71 * Y4,
+            SolarEvent::JuneSolstice =>
+                1_721_233.254_01 + 365_241.725_62 * Y - 0.053_23 * Y2 + 0.009_07 * Y3 + 0.000_25 * Y4,
+            SolarEvent::SeptemberEquinox =>
+                1_721_325.704_55 + 365_242.495_58 * Y - 0.116_77 * Y2 - 0.002_97 * Y3 + 0.000_74 * Y4,
+            SolarEvent::DecemberSolstice =>
+                1_721_414.399_87 + 365_242.882_57 * Y - 0.007_69 * Y2 - 0.009_33 * Y3 - 0.000_06 * Y4,
+        }
+    // For years +1000 to +3000, but can be used for several centuries
+    // after +3000 with only small errors.
+    } else {
+        let Y = (f64::from(year) - 2000.0) / 1000.0;
+        let Y2 = Y * Y;
+        let Y3 = Y2 * Y;
+        let Y4 = Y3 * Y;
+
+        match event {
+            SolarEvent::MarchEquinox =>
+                2_451_623.809_84 + 365_242.374_04 * Y + 0.051_69 * Y2 - 0.004_11 * Y3 - 0.000_57 * Y4,
+            SolarEvent::JuneSolstice =>
+                2_451_716.567_67 + 365_241.626_03 * Y + 0.003_25 * Y2 + 0.008_88 * Y3 - 0.000_30 * Y4,
+            SolarEvent::SeptemberEquinox =>
+                2_451_810.217_15 + 365_242.017_67 * Y - 0.115_75 * Y2 + 0.003_37 * Y3 + 0.000_78 * Y4,
+            SolarEvent::DecemberSolstice =>
+                2_451_900.059_52 + 365_242.740_49 * Y - 0.062_23 * Y2 - 0.008_23 * Y3 + 0.000_32 * Y4,
+        }
+    };
+
+    // Correction of approximate JDE0.
+
+    let T = (jde0 - 2_451_545.0) / 36525.0;
+    let W = 35_999.373 * T - 2.47;
+    let dL = 1.0 + 0.033_4 * dcos(W) + 0.000_7 * dcos(2.0 * W);
+
+    let S = 485.0 * dcos(324.96 + 1_934.136 * T)
+        + 203.0 * dcos(337.23 + 32_964.467 * T)
+        + 199.0 * dcos(342.08 + 20.186 * T)
+        + 182.0 * dcos(27.85 + 445_267.112 * T)
+        + 156.0 * dcos(73.14 + 45_036.886 * T)
+        + 136.0 * dcos(171.52 + 22_518.443 * T)
+        + 77.0 * dcos(222.54 + 65_928.934 * T)
+        + 74.0 * dcos(296.72 + 3_034.906 * T)
+        + 70.0 * dcos(243.58 + 9_037.513 * T)
+        + 58.0 * dcos(119.81 + 33_718.147 * T)
+        + 52.0 * dcos(297.17 + 150.678 * T)
+        + 50.0 * dcos(21.02 + 2_281.226 * T)
+        + 45.0 * dcos(247.54 + 29_929.562 * T)
+        + 44.0 * dcos(325.15 + 31_555.956 * T)
+        + 29.0 * dcos(60.93 + 4_443.417 * T)
+        + 18.0 * dcos(155.12 + 67_555.328 * T)
+        + 17.0 * dcos(288.79 + 4_562.452 * T)
+        + 16.0 * dcos(198.04 + 62_894.029 * T)
+        + 14.0 * dcos(199.76 + 31_436.921 * T)
+        + 12.0 * dcos(95.39 + 14_577.848 * T)
+        + 12.0 * dcos(287.11 + 31_931.756 * T)
+        + 12.0 * dcos(320.81 + 34_777.259 * T)
+        + 9.0 * dcos(227.73 + 1_222.114 * T)
+        + 8.0 * dcos(15.45 + 16_859.074 * T);
+
+    jde0 + (0.000_01 * S) / dL
 }
 
 fn fraction_of_lunation_to_phase(p: f64) -> usize {
@@ -816,6 +1095,7 @@ fn meanphase(sdate: f64, k: f64) -> f64 {
 ///
 /// Panics if [`truephase()`] called with invalid phase selector. Phase
 /// selector should be one of these values: 0.0, 0.25, 0.5, 0.75.
+#[rustfmt::skip]
 fn truephase(mut k: f64, phase: f64) -> f64 {
     let mut apcor = false;
 
@@ -836,7 +1116,9 @@ fn truephase(mut k: f64, phase: f64) -> f64 {
 
     if phase < 0.01 || (phase - 0.5).abs() < 0.01 {
         // Corrections for New and Full Moon
-        pt += (0.1734 - 0.000_393 * t) * dsin(m) + 0.0021 * dsin(2.0 * m) - 0.4068 * dsin(mprime)
+        pt += (0.1734 - 0.000_393 * t) * dsin(m)
+            + 0.0021 * dsin(2.0 * m)
+            - 0.4068 * dsin(mprime)
             + 0.0161 * dsin(2.0 * mprime)
             - 0.0004 * dsin(3.0 * mprime)
             + 0.0104 * dsin(2.0 * f)
@@ -849,7 +1131,9 @@ fn truephase(mut k: f64, phase: f64) -> f64 {
             + 0.0005 * dsin(m + 2.0 * mprime);
         apcor = true;
     } else if (phase - 0.25).abs() < 0.01 || (phase - 0.75).abs() < 0.01 {
-        pt += (0.1721 - 0.0004 * t) * dsin(m) + 0.0021 * dsin(2.0 * m) - 0.6280 * dsin(mprime)
+        pt += (0.1721 - 0.0004 * t) * dsin(m)
+            + 0.0021 * dsin(2.0 * m)
+            - 0.6280 * dsin(mprime)
             + 0.0089 * dsin(2.0 * mprime)
             - 0.0004 * dsin(3.0 * mprime)
             + 0.0079 * dsin(2.0 * f)
@@ -1096,7 +1380,7 @@ mod tests {
         assert_eq!(EPL!(2), "s");
     }
 
-    // Custom API
+    // Custom API.
 
     #[test]
     fn every_way_of_creating_moonphase_gives_same_result() {
@@ -1108,6 +1392,16 @@ mod tests {
         let f = MoonPhase::for_julian_date(2_439_913.881_944_444_5);
 
         assert!([b, c, d, e, f].iter().all(|x| *x == a));
+    }
+
+    #[test]
+    fn create_moonphase_for_date() {
+        let mphase = MoonPhase::for_ymd(2024, 7, 15);
+
+        assert_eq!(
+            mphase,
+            MoonPhase::for_datetime(&"2024-07-15T00:00:00Z".parse().unwrap()),
+        );
     }
 
     #[test]
@@ -1225,6 +1519,16 @@ Sun subtends:\t\t0.5367 degrees.\
     }
 
     #[test]
+    fn create_mooncalendar_for_date() {
+        let mcal = MoonCalendar::for_ymd(2024, 7, 15);
+
+        assert_eq!(
+            mcal,
+            MoonCalendar::for_datetime(&"2024-07-15T00:00:00Z".parse().unwrap()),
+        );
+    }
+
+    #[test]
     fn mooncalendar_regular() {
         let mcal = mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
@@ -1281,7 +1585,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
         assert_eq!(
             mcal.to_json(),
-            r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"utc_datetime":1995-03-11T01:40:00Z,"lunation":893,"last_new_moon":2449777.9930243203,"last_new_moon_utc":"1995-03-01T11:49:57Z","first_quarter":2449785.9259425676,"first_quarter_utc":"1995-03-09T10:13:21Z","full_moon":2449793.5607311586,"full_moon_utc":"1995-03-17T01:27:27Z","last_quarter":2449800.3410721812,"last_quarter_utc":"1995-03-23T20:11:09Z","next_new_moon":2449807.5908233593,"next_new_moon_utc":"1995-03-31T02:10:47Z"}"#,
+            r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"utc_datetime":"1995-03-11T01:40:00Z","lunation":893,"last_new_moon":2449777.9930243203,"last_new_moon_utc":"1995-03-01T11:49:57Z","first_quarter":2449785.9259425676,"first_quarter_utc":"1995-03-09T10:13:21Z","full_moon":2449793.5607311586,"full_moon_utc":"1995-03-17T01:27:27Z","last_quarter":2449800.3410721812,"last_quarter_utc":"1995-03-23T20:11:09Z","next_new_moon":2449807.5908233593,"next_new_moon_utc":"1995-03-31T02:10:47Z"}"#,
         );
     }
 
@@ -1291,6 +1595,132 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
         mcal.timestamp = None;
 
         assert!(mcal.to_json().contains(r#""timestamp":null,"#));
+    }
+
+    #[test]
+    fn every_way_of_creating_suncalendar_gives_same_result() {
+        let a = suncal(&UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
+        let b = SunCalendar::for_datetime(&UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
+        let c = SunCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0);
+        let d = SunCalendar::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
+        let e = SunCalendar::for_timestamp(-58_200_600).unwrap();
+        let f = SunCalendar::for_julian_date(2_439_913.881_944_444_5);
+
+        assert!([b, c, d, e, f].iter().all(|x| *x == a));
+    }
+
+    #[test]
+    fn create_suncalendar_for_date() {
+        let scal = SunCalendar::for_ymd(2024, 7, 15);
+
+        assert_eq!(
+            scal,
+            SunCalendar::for_datetime(&"2024-07-15T00:00:00Z".parse().unwrap()),
+        );
+    }
+
+    #[test]
+    fn create_suncalendar_for_year() {
+        let scal = SunCalendar::for_year(2024);
+
+        assert_eq!(
+            scal,
+            SunCalendar::for_datetime(&"2024-01-01T00:00:00Z".parse().unwrap()),
+        );
+    }
+
+    #[test]
+    fn suncalendar_regular() {
+        let scal = suncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+
+        assert_eq!(
+            scal,
+            SunCalendar {
+                julian_date: 2_449_787.569_444_444_5,
+                timestamp: Some(794_886_000),
+                utc_datetime: UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0),
+                march_equinox: 2_449_797.594_275_648_7,
+                march_equinox_utc: UTCDateTime::from_ymdhms(1995, 3, 21, 2, 15, 45),
+                june_solstice: 2_449_890.357_965_532_7,
+                june_solstice_utc: UTCDateTime::from_ymdhms(1995, 6, 21, 20, 35, 28),
+                september_equinox: 2_449_984.009_840_158_3,
+                september_equinox_utc: UTCDateTime::from_ymdhms(1995, 9, 23, 12, 14, 10),
+                december_solstice: 2_450_073.845_976_675_4,
+                december_solstice_utc: UTCDateTime::from_ymdhms(1995, 12, 22, 8, 18, 12),
+            }
+        );
+    }
+
+    #[test]
+    fn suncalendar_before_1000_ad() {
+        let mut scal = suncal(&UTCDateTime::from_ymdhms(420, 3, 6, 9, 42, 12));
+
+        scal.utc_datetime.weekday = 99;
+        scal.march_equinox_utc.weekday = 99;
+        scal.june_solstice_utc.weekday = 99;
+        scal.september_equinox_utc.weekday = 99;
+        scal.december_solstice_utc.weekday = 99;
+
+        assert_eq!(
+            scal,
+            SunCalendar {
+                julian_date: 1_874_527.904_305_555_6,
+                timestamp: Some(-48_907_635_468),
+                utc_datetime: UTCDateTime::from_ymddhms(420, 3, 6, 99, 9, 42, 12),
+                march_equinox: 1_874_541.007_477_060_2,
+                march_equinox_utc: UTCDateTime::from_ymddhms(420, 3, 19, 99, 12, 10, 46),
+                june_solstice: 1_874_634.777_248_703_4,
+                june_solstice_utc: UTCDateTime::from_ymddhms(420, 6, 21, 99, 6, 39, 14),
+                september_equinox: 1_874_727.537_210_142,
+                september_equinox_utc: UTCDateTime::from_ymddhms(420, 9, 22, 99, 0, 53, 35),
+                december_solstice: 1_874_816.418_745_953_4,
+                december_solstice_utc: UTCDateTime::from_ymddhms(420, 12, 19, 99, 22, 3, 0),
+            }
+        );
+    }
+
+    #[test]
+    fn suncalendar_for_bad_timestamp() {
+        let scal = SunCalendar::for_timestamp(i64::MIN);
+
+        assert!(scal.is_err());
+    }
+
+    #[test]
+    fn suncalendar_display() {
+        let scal = suncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+
+        assert_eq!(
+            scal.to_string(),
+            "\
+Sun Calendar
+============
+
+March equinox:\t\tTuesday    2:15 UTC 21 March 1995
+June solstice:\t\tWednesday 20:35 UTC 21 June  1995
+September equinox:\tSaturday  12:14 UTC 23 September 1995
+December solstice:\tFriday     8:18 UTC 22 December 1995\
+"
+        );
+    }
+
+    #[test]
+    fn suncalendar_to_json() {
+        let scal = suncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+
+        println!("{}", scal.to_json());
+        assert_eq!(
+            scal.to_json(),
+            r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"utc_datetime":"1995-03-11T01:40:00Z","march_equinox":2449797.5942756487,"march_equinox_utc":"1995-03-21T02:15:45Z","june_solstice":2449890.3579655327,"june_solstice_utc":"1995-06-21T20:35:28Z","september_equinox":2449984.0098401583,"september_equinox_utc":"1995-09-23T12:14:10Z","december_solstice":2450073.8459766754,"december_solstice_utc":"1995-12-22T08:18:12Z"}"#,
+        );
+    }
+
+    #[test]
+    fn suncalendar_to_json_timestamp_error() {
+        let mut scal = suncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+        scal.timestamp = None;
+
+        assert!(scal.to_json().contains(r#""timestamp":null,"#));
     }
 
     // Moon
@@ -1627,6 +2057,18 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
                 sun_distance: 149_916_135.218_393_74,
                 sun_angular_diameter: 0.531_998_433_602_993_3,
             }
+        );
+    }
+
+    #[test]
+    fn tmp_suncal_june_solstice() {
+        // Example values from Jean Meeus' Astronomical Algorithms book.
+        let jd = solarevent(1962, SolarEvent::JuneSolstice);
+
+        assert_almost_eq!(jd, 2_437_837.392_448_240_4);
+        assert_eq!(
+            UTCDateTime::from_julian_date(jd).to_string(),
+            "1962-06-21T21:25:08Z"
         );
     }
 }

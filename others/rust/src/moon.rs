@@ -119,9 +119,65 @@ const MOONICN: [&str; 8] = [
     "\u{1f318}", // 🌘
 ];
 
+pub trait ForDateTime: Sized {
+    #[cfg(not(tarpaulin_include))]
+    #[must_use]
+    fn now() -> Self {
+        let now = UTCDateTime::now();
+        Self::for_datetime(&now)
+    }
+
+    #[must_use]
+    fn for_datetime(datetime: &UTCDateTime) -> Self;
+
+    #[must_use]
+    fn for_ymdhms(year: i32, month: u32, day: u32, hour: u32, minute: u32, second: u32) -> Self {
+        Self::for_datetime(&UTCDateTime {
+            year,
+            month,
+            day,
+            weekday: 99, // This is fine, it's not used in calculations.
+            hour,
+            minute,
+            second,
+        })
+    }
+
+    /// # Errors
+    ///
+    /// If parsing of datetime string fails.
+    fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
+        let datetime = iso_string.parse()?;
+        #[cfg(not(tarpaulin_include))] // Erroneously marked uncovered.
+        Ok(Self::for_datetime(&datetime))
+    }
+
+    /// # Errors
+    ///
+    /// If timestamp is out of bounds.
+    fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+        let datetime = UTCDateTime::from_timestamp(timestamp)?;
+        #[cfg(not(tarpaulin_include))] // Erroneously marked uncovered.
+        Ok(Self::for_datetime(&datetime))
+    }
+
+    #[must_use]
+    fn for_julian_date(julian_date: f64) -> Self {
+        let datetime = UTCDateTime::from_julian_date(julian_date);
+        Self::for_datetime(&datetime)
+    }
+}
+
 pub trait ToJSON {
     fn to_json(&self) -> String;
 }
+
+/// Marker trait to enforce common behaviour across API objects.
+///
+/// This is used exclusively as a compiler-driven development aid.
+/// Implementing it ensures nothing is left aside.
+#[allow(dead_code)]
+trait MarkerBase: ForDateTime + fmt::Display + ToJSON {}
 
 /// Helper to `write!()` to a string with auto-`unwrap()`.
 macro_rules! write_to {
@@ -130,7 +186,7 @@ macro_rules! write_to {
     };
 }
 
-// Custom API
+// Custom API.
 
 /// Serves as return value for [`phase()`].
 ///
@@ -156,7 +212,7 @@ struct PhaseInfo {
 /// # Examples
 ///
 /// ```rust
-/// use moontool::moon::MoonPhase;
+/// use moontool::moon::{ForDateTime, MoonPhase};
 ///
 /// let mphase = MoonPhase::for_ymdhms(2024, 5, 4, 10, 0, 0);
 ///
@@ -230,57 +286,12 @@ pub struct MoonPhase {
     pub sun_subtends: f64,
 }
 
-impl MoonPhase {
-    #[cfg(not(tarpaulin_include))]
-    #[must_use]
-    pub fn now() -> Self {
-        let now = UTCDateTime::now();
-        Self::for_datetime(&now)
-    }
+impl MarkerBase for MoonPhase {}
 
+impl ForDateTime for MoonPhase {
     #[must_use]
-    pub fn for_datetime(datetime: &UTCDateTime) -> Self {
+    fn for_datetime(datetime: &UTCDateTime) -> Self {
         moonphase(datetime)
-    }
-
-    #[must_use]
-    pub fn for_ymdhms(
-        year: i32,
-        month: u32,
-        day: u32,
-        hour: u32,
-        minute: u32,
-        second: u32,
-    ) -> Self {
-        Self::for_datetime(&UTCDateTime {
-            year,
-            month,
-            day,
-            weekday: 99, // This is fine, it's not used in calculations.
-            hour,
-            minute,
-            second,
-        })
-    }
-
-    /// # Errors
-    ///
-    /// If parsing of datetime string fails.
-    pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
-        let datetime = iso_string.parse()?;
-        Ok(Self::for_datetime(&datetime))
-    }
-
-    #[allow(clippy::missing_errors_doc)]
-    pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
-        let datetime = UTCDateTime::from_timestamp(timestamp)?;
-        Ok(Self::for_datetime(&datetime))
-    }
-
-    #[must_use]
-    pub fn for_julian_date(julian_date: f64) -> Self {
-        let datetime = UTCDateTime::from_julian_date(julian_date);
-        Self::for_datetime(&datetime)
     }
 }
 
@@ -442,7 +453,7 @@ impl ToJSON for MoonPhase {
 /// # Examples
 ///
 /// ```rust
-/// use moontool::moon::MoonCalendar;
+/// use moontool::moon::{ForDateTime, MoonCalendar};
 ///
 /// let mcal = MoonCalendar::for_ymdhms(2024, 5, 4, 10, 0, 0);
 ///
@@ -474,58 +485,14 @@ pub struct MoonCalendar {
     pub next_new_moon_utc: UTCDateTime,
 }
 
+impl MarkerBase for MoonCalendar {}
+
 // Global explanation in `struct MoonCalendar`'s docstring.
 #[allow(clippy::missing_errors_doc)]
-impl MoonCalendar {
-    #[cfg(not(tarpaulin_include))]
+impl ForDateTime for MoonCalendar {
     #[must_use]
-    pub fn now() -> Self {
-        let now = UTCDateTime::now();
-        Self::for_datetime(&now)
-    }
-
-    #[must_use]
-    pub fn for_datetime(datetime: &UTCDateTime) -> Self {
+    fn for_datetime(datetime: &UTCDateTime) -> Self {
         mooncal(datetime)
-    }
-
-    #[must_use]
-    pub fn for_ymdhms(
-        year: i32,
-        month: u32,
-        day: u32,
-        hour: u32,
-        minute: u32,
-        second: u32,
-    ) -> Self {
-        Self::for_datetime(&UTCDateTime {
-            year,
-            month,
-            day,
-            weekday: 99, // This is fine, it's not used in calculations.
-            hour,
-            minute,
-            second,
-        })
-    }
-
-    /// # Errors
-    ///
-    /// If parsing of datetime string fails.
-    pub fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
-        let datetime = iso_string.parse()?;
-        Ok(Self::for_datetime(&datetime))
-    }
-
-    pub fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
-        let datetime = UTCDateTime::from_timestamp(timestamp)?;
-        Ok(Self::for_datetime(&datetime))
-    }
-
-    #[must_use]
-    pub fn for_julian_date(julian_date: f64) -> Self {
-        let datetime = UTCDateTime::from_julian_date(julian_date);
-        Self::for_datetime(&datetime)
     }
 
     // TODO:

@@ -72,6 +72,8 @@ macro_rules! EPL {
     };
 }
 
+// TODO: We should probably refactor those, we're far from the C API
+// now anyway.
 const MONAME: [&str; 12] = [
     "January",
     "February",
@@ -182,6 +184,7 @@ pub trait ForYear: ForDateTime {
     }
 }
 
+/// Serialize values to JSON.
 pub trait ToJSON {
     fn to_json(&self) -> String;
 }
@@ -501,19 +504,12 @@ pub struct MoonCalendar {
 
 impl MarkerBase for MoonCalendar {}
 
-// Global explanation in `struct MoonCalendar`'s docstring.
 #[allow(clippy::missing_errors_doc)]
 impl ForDateTime for MoonCalendar {
     #[must_use]
     fn for_datetime(datetime: &UTCDateTime) -> Self {
         mooncal(datetime)
     }
-
-    // TODO:
-    //  fn new_moons_for_year(year: i32) -> Vec<UTCDateTime> {}
-    //  fn full_moons_for_year(year: i32) -> Vec<UTCDateTime> {}
-    //  With Moon names, Harvest Moon, and Blue Moons.
-    //  (SunCalendar, for Harvest Moon)
 }
 
 impl fmt::Display for MoonCalendar {
@@ -573,7 +569,284 @@ impl ToJSON for MoonCalendar {
     }
 }
 
-/// Information about equinoxes and solstices of a given year.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NewMoon {
+    pub date: f64,
+    pub date_utc: UTCDateTime,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FullMoon {
+    pub date: f64,
+    pub date_utc: UTCDateTime,
+    pub name: String,
+}
+
+/// List of all New Moons and Full Moons, of a given year.
+///
+/// # Examples
+///
+/// ```rust
+/// use moontool::moon::{ForYear, FullMoon, NewMoon, UTCDateTime, YearlyMoonCalendar};
+///
+/// let ymcal = YearlyMoonCalendar::for_year(2024);
+///
+/// println!("{ymcal:#?}");
+///
+/// assert_eq!(
+///     ymcal.new_moons[0],
+///     NewMoon {
+///         date: 2460320.9986786423,
+///         date_utc: UTCDateTime::from_ymdhms(2024, 1, 11, 11, 58, 6),
+///     }
+/// );
+/// assert_eq!(
+///     ymcal.full_moons[8],
+///     FullMoon {
+///         date: 2460571.6088363146,
+///         date_utc: UTCDateTime::from_ymdhms(2024, 9, 18, 2, 36, 43),
+///         name: String::from("Harvest Moon"),
+///     },
+/// );
+/// ```
+///
+/// # Errors
+///
+/// Errors may be caused by input values that are out of range. Also,
+/// when formatting to string, if the system's timezone offset cannot be
+/// retrieved then local time won't appear in the output.
+#[derive(Clone, Debug, PartialEq)]
+pub struct YearlyMoonCalendar {
+    pub julian_date: f64,
+    pub timestamp: Option<i64>,
+    pub utc_datetime: UTCDateTime,
+    pub new_moons: Vec<NewMoon>,
+    pub full_moons: Vec<FullMoon>,
+}
+
+impl MarkerBase for YearlyMoonCalendar {}
+
+impl ForDateTime for YearlyMoonCalendar {
+    fn for_datetime(datetime: &UTCDateTime) -> Self {
+        yearly_mooncal(datetime)
+    }
+}
+
+impl ForYear for YearlyMoonCalendar {}
+
+impl fmt::Display for YearlyMoonCalendar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let new_moons: Vec<String> = self
+            .new_moons
+            .iter()
+            .enumerate()
+            .map(|(i, x)| {
+                format!("{:>2}. {:<37}", i + 1, fmt_phase_time(&x.date_utc))
+                    .trim_end()
+                    .to_string()
+            })
+            .collect();
+
+        let full_moons: Vec<String> = self
+            .full_moons
+            .iter()
+            .enumerate()
+            .map(|(i, x)| {
+                format!(
+                    "{:>2}. {:<37}   {}",
+                    i + 1,
+                    fmt_phase_time(&x.date_utc),
+                    x.name
+                )
+                .trim_end()
+                .to_string()
+            })
+            .collect();
+
+        writeln!(f, "New Moons\n=========\n")?;
+        writeln!(f, "{}", new_moons.join("\n"))?;
+        writeln!(f, "\nFull Moons\n==========\n")?;
+        write!(f, "{}", full_moons.join("\n"))
+    }
+}
+
+impl ToJSON for YearlyMoonCalendar {
+    fn to_json(&self) -> String {
+        let mut json = String::new();
+        write_to!(json, "{{");
+        write_to!(json, r#""julian_date":{},"#, self.julian_date);
+        write_to!(
+            json,
+            r#""timestamp":{},"#,
+            self.timestamp
+                .map_or_else(|| String::from("null"), |v| v.to_string())
+        );
+        write_to!(
+            json,
+            r#""new_moons":[{}],"#,
+            self.new_moons
+                .iter()
+                .map(|new_moon| format!(
+                    r#"{{"date":{},"date_utc":"{}"}}"#,
+                    new_moon.date, new_moon.date_utc
+                ))
+                .collect::<Vec<String>>()
+                .join(",")
+        );
+        write_to!(
+            json,
+            r#""full_moons":[{}]"#,
+            self.full_moons
+                .iter()
+                .map(|full_moon| format!(
+                    r#"{{"date":{},"date_utc":"{}","name":"{}"}}"#,
+                    full_moon.date, full_moon.date_utc, full_moon.name
+                ))
+                .collect::<Vec<String>>()
+                .join(",")
+        );
+        write_to!(json, "}}");
+        json
+    }
+}
+
+fn yearly_mooncal(gm: &UTCDateTime) -> YearlyMoonCalendar {
+    let (new_moons, mut full_moons) = new_moons_for_year(gm.year);
+
+    name_full_moons(&mut full_moons);
+
+    YearlyMoonCalendar {
+        julian_date: gm.to_julian_date(),
+        timestamp: gm.to_timestamp().ok(),
+        utc_datetime: gm.clone(),
+        new_moons,
+        full_moons,
+    }
+}
+
+#[allow(clippy::comparison_chain)]
+fn new_moons_for_year(year: i32) -> (Vec<NewMoon>, Vec<FullMoon>) {
+    let mut new_moons = vec![];
+    let mut full_moons = vec![];
+
+    // Start on the last day of the year prior. This may catch Moons
+    // that belong to the wrong year (they will be ignored), but on the
+    // upside, we ensure that "next New Moon" is the first New Moon of
+    // the target year, and dispel any concerns about rounding errors.
+    let mut jd = UTCDateTime::from_ymdhms(year - 1, 12, 31, 0, 0, 0).to_julian_date();
+
+    loop {
+        // Get info for the current lunar month.
+        let mcal = MoonCalendar::for_julian_date(jd);
+
+        // If "Full Moon" is in the target year, take it.
+        if mcal.full_moon_utc.year == year {
+            full_moons.push(FullMoon {
+                date: mcal.full_moon,
+                date_utc: mcal.full_moon_utc,
+                name: String::new(),
+            });
+
+        // But if "Full Moon" is next year, we're done. "next New Moon"
+        // is necessarily next year as well.
+        } else if mcal.full_moon_utc.year > year {
+            break;
+        }
+
+        // If "next New Moon" is in the target year, take it (it may
+        // belong to the year prior if it falls on Dec 31st).
+        if mcal.next_new_moon_utc.year == year {
+            new_moons.push(NewMoon {
+                date: mcal.next_new_moon,
+                date_utc: mcal.next_new_moon_utc,
+            });
+        }
+
+        // Go to the day after "next New Moon". This ensures we're in
+        // the subsequent lunar month for the next iteration.
+        jd = mcal.next_new_moon + 1.0;
+    }
+
+    (new_moons, full_moons)
+}
+
+fn name_full_moons(full_moons: &mut [FullMoon]) {
+    let mut last_month = 0;
+    for full_moon in full_moons.iter_mut() {
+        let name = match full_moon.date_utc.month {
+            // The second Full Moon in a given month is a Blue Moon.
+            _ if full_moon.date_utc.month == last_month => "Blue Moon",
+            1 => "Wolf Moon",
+            2 => "Snow Moon",
+            3 => "Worm Moon",
+            4 => "Pink Moon",
+            5 => "Flower Moon",
+            6 => "Strawberry Moon",
+            7 => "Buck Moon",
+            8 => "Sturgeon Moon",
+            9 => "Corn Moon",
+            10 => "Hunter's Moon",
+            11 => "Beaver Moon",
+            12 => "Cold Moon",
+            #[cfg(not(tarpaulin_include))]
+            _ => continue,
+        };
+
+        full_moon.name = String::from(name);
+        last_month = full_moon.date_utc.month;
+    }
+
+    let i = find_index_of_harvest_moon(full_moons);
+
+    if let Some(harvest_moon) = full_moons.get_mut(i) {
+        harvest_moon.name = String::from("Harvest Moon");
+    }
+    // Traditionally, the Hunter's Moon follows the Harvest Moon.
+    // If the Harvest Moon takes place in October, the Hunter's Moon
+    // will be the first Full Moon of November (e.g., 2001).
+    if let Some(hunters_moon) = full_moons.get_mut(i + 1) {
+        hunters_moon.name = String::from("Hunter's Moon");
+    }
+}
+
+/// Find the index of the Harvest Moon among the list of Full Moons.
+///
+/// The Harvest Moon is the full moon closest to September's equinox,
+/// usually occurring in September but sometimes in October, about once
+/// every three years.
+///
+/// Traditionally, this Moon provided extra light to farmers, aiding
+/// them in harvesting crops. Many cultures and spiritual traditions
+/// hold ceremonies or rituals during this time.
+///
+/// # Warning
+///
+/// This function assumes the list of Full Moons in exhaustive for the
+/// given year, so that the Harvest Moon necessarily _is_ among the
+/// given Moons.
+fn find_index_of_harvest_moon(full_moons: &[FullMoon]) -> usize {
+    let year = full_moons[0].date_utc.year;
+    let september_equinox = solarevent(year, SolarEvent::SeptemberEquinox);
+
+    let mut harvest_moon: Option<(f64, usize)> = None;
+
+    for (i, full_moon) in full_moons.iter().enumerate() {
+        let d = (september_equinox - full_moon.date).abs();
+        if let Some((min_d, _)) = harvest_moon {
+            if d < min_d {
+                // Bias towards September if equal.
+                harvest_moon = Some((d, i));
+            }
+        } else {
+            harvest_moon = Some((d, i));
+        }
+    }
+
+    let (_, i) = harvest_moon.expect("as long as there are Moons, there is a nearest.");
+    i
+}
+
+/// Information about equinoxes and solstices, of a given year.
 ///
 /// > By definition, the times of the equinoxes and solstices are the
 /// > instants when the apparent geocentric longitude of the Sun (that
@@ -913,7 +1186,7 @@ fn mooncal(gm: &UTCDateTime) -> MoonCalendar {
 fn fmt_phase_time(gm: &UTCDateTime) -> String {
     format!(
         "{:<9} {:>2}:{:0>2} UTC {:>2} {:<5} {}",
-        DAYNAME[gm.weekday() as usize],
+        DAYNAME[gm.weekday() as usize], // TODO: Can weekday be 99 here? => Return Result and do something useful instead (just leave blank). Same elsewhere.
         gm.hour,
         gm.minute,
         gm.day,
@@ -1449,6 +1722,8 @@ Sun subtends:\t\t0.5367 degrees.\
 
         let mut json = mphase.to_json();
 
+        println!("{}", mphase.to_json());
+
         // This value is slightly different across systems.
         // To simplify testing, we normalize it.
         json = json.replace(
@@ -1547,6 +1822,7 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
     fn mooncalendar_to_json() {
         let mcal = mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
+        println!("{}", mcal.to_json());
         assert_eq!(
             mcal.to_json(),
             r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"utc_datetime":"1995-03-11T01:40:00Z","lunation":893,"last_new_moon":2449777.9930243203,"last_new_moon_utc":"1995-03-01T11:49:57Z","first_quarter":2449785.9259425676,"first_quarter_utc":"1995-03-09T10:13:21Z","full_moon":2449793.5607311586,"full_moon_utc":"1995-03-17T01:27:27Z","last_quarter":2449800.3410721812,"last_quarter_utc":"1995-03-23T20:11:09Z","next_new_moon":2449807.5908233593,"next_new_moon_utc":"1995-03-31T02:10:47Z"}"#,
@@ -1559,6 +1835,326 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
         mcal.timestamp = None;
 
         assert!(mcal.to_json().contains(r#""timestamp":null,"#));
+    }
+
+    #[test]
+    fn every_way_of_creating_yearly_mooncalendar_gives_same_result() {
+        let a = yearly_mooncal(&UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
+        let b = YearlyMoonCalendar::for_datetime(&UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
+        let c = YearlyMoonCalendar::for_ymdhms(1968, 2, 27, 9, 10, 0);
+        let d = YearlyMoonCalendar::for_iso_string("1968-02-27T10:10:00+01:00").unwrap();
+        let e = YearlyMoonCalendar::for_timestamp(-58_200_600).unwrap();
+        let f = YearlyMoonCalendar::for_julian_date(2_439_913.881_944_444_5);
+
+        assert!([b, c, d, e, f].iter().all(|x| *x == a));
+    }
+
+    #[test]
+    fn create_yearly_mooncalendar_for_date() {
+        let ymcal = YearlyMoonCalendar::for_ymd(2024, 7, 15);
+
+        assert_eq!(
+            ymcal,
+            YearlyMoonCalendar::for_datetime(&"2024-07-15T00:00:00Z".parse().unwrap()),
+        );
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn yearly_mooncalendar_regular() {
+        let ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+
+        assert_eq!(
+            ymcal,
+            YearlyMoonCalendar {
+                julian_date: 2_449_787.569_444_444_5,
+                timestamp: Some(794_886_000),
+                utc_datetime: UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0),
+                new_moons: vec![
+                    NewMoon {
+                        date: 2_449_718.956_136_873_5,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 1, 1, 10, 56, 50)
+                    },
+                    NewMoon {
+                        date: 2_449_748.451_091_56,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 1, 30, 22, 49, 34)
+                    },
+                    NewMoon {
+                        date: 2_449_777.993_024_320_3,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 3, 1, 11, 49, 57)
+                    },
+                    NewMoon {
+                        date: 2_449_807.590_823_359_3,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 3, 31, 2, 10, 47)
+                    },
+                    NewMoon {
+                        date: 2_449_837.234_842_154_7,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 4, 29, 17, 38, 10)
+                    },
+                    NewMoon {
+                        date: 2_449_866.894_783_045,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 5, 29, 9, 28, 29)
+                    },
+                    NewMoon {
+                        date: 2_449_896.535_279_648,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 6, 28, 0, 50, 48)
+                    },
+                    NewMoon {
+                        date: 2_449_926.134_210_367,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 7, 27, 15, 13, 16)
+                    },
+                    NewMoon {
+                        date: 2_449_955.688_148_399_3,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 8, 26, 4, 30, 56)
+                    },
+                    NewMoon {
+                        date: 2_449_985.204_571_035,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 9, 24, 16, 54, 35)
+                    },
+                    NewMoon {
+                        date: 2_450_014.691_681_338,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 10, 24, 4, 36, 1)
+                    },
+                    NewMoon {
+                        date: 2_450_044.154_738_946,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 11, 22, 15, 42, 49)
+                    },
+                    NewMoon {
+                        date: 2_450_073.599_341_999,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 12, 22, 2, 23, 3)
+                    }
+                ],
+                full_moons: vec![
+                    FullMoon {
+                        date: 2_449_734.352_721_255_3,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 1, 16, 20, 27, 55),
+                        name: String::from("Wolf Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_764.011_966_952_6,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 2, 15, 12, 17, 14),
+                        name: String::from("Snow Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_793.560_731_158_6,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 3, 17, 1, 27, 27),
+                        name: String::from("Worm Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_823.006_760_471,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 4, 15, 12, 9, 44),
+                        name: String::from("Pink Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_852.367_306_99,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 5, 14, 20, 48, 55),
+                        name: String::from("Flower Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_881.669_201_127,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 6, 13, 4, 3, 39),
+                        name: String::from("Strawberry Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_910.950_985_403_7,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 7, 12, 10, 49, 25),
+                        name: String::from("Buck Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_940.260_853_294_7,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 8, 10, 18, 15, 38),
+                        name: String::from("Sturgeon Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_969.650_321_038_4,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 9, 9, 3, 36, 28),
+                        name: String::from("Harvest Moon")
+                    },
+                    FullMoon {
+                        date: 2_449_999.161_113_315_3,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 10, 8, 15, 52, 0),
+                        name: String::from("Hunter's Moon")
+                    },
+                    FullMoon {
+                        date: 2_450_028.806_614_596_4,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 11, 7, 7, 21, 32),
+                        name: String::from("Beaver Moon")
+                    },
+                    FullMoon {
+                        date: 2_450_058.561_306_783,
+                        date_utc: UTCDateTime::from_ymdhms(1995, 12, 7, 1, 28, 17),
+                        name: String::from("Cold Moon")
+                    }
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn yearly_mooncalendar_year_with_12_new_moons() {
+        let ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(2023, 1, 1, 0, 0, 0));
+
+        assert_eq!(ymcal.new_moons.len(), 12);
+    }
+
+    #[test]
+    fn yearly_mooncalendar_two_new_moons_in_same_month() {
+        let ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(2019, 1, 1, 0, 0, 0));
+
+        assert_eq!(
+            ymcal.new_moons[7].date_utc.to_string(),
+            "2019-08-01T03:12:55Z"
+        );
+
+        assert_eq!(
+            ymcal.new_moons[8].date_utc.to_string(),
+            "2019-08-30T10:38:21Z"
+        );
+    }
+
+    #[test]
+    fn yearly_mooncalendar_blue_moon() {
+        let ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(1999, 1, 1, 0, 0, 0));
+
+        assert_eq!(
+            ymcal.full_moons[0].date_utc.to_string(),
+            "1999-01-02T02:51:24Z"
+        );
+        assert_eq!(ymcal.full_moons[0].name, "Wolf Moon");
+
+        assert_eq!(
+            ymcal.full_moons[1].date_utc.to_string(),
+            "1999-01-31T16:08:16Z"
+        );
+        assert_eq!(ymcal.full_moons[1].name, "Blue Moon");
+
+        assert_eq!(
+            ymcal.full_moons[2].date_utc.to_string(),
+            "1999-03-02T06:59:52Z"
+        );
+        assert_eq!(ymcal.full_moons[2].name, "Worm Moon");
+
+        assert_eq!(
+            ymcal.full_moons[3].date_utc.to_string(),
+            "1999-03-31T22:49:59Z"
+        );
+        assert_eq!(ymcal.full_moons[3].name, "Blue Moon");
+    }
+
+    #[test]
+    fn yearly_mooncalendar_harvest_moon_in_october() {
+        let ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(2001, 1, 1, 0, 0, 0));
+
+        assert_eq!(
+            ymcal.full_moons[8].date_utc.to_string(),
+            "2001-09-02T21:44:53Z"
+        );
+        assert_eq!(ymcal.full_moons[8].name, "Corn Moon");
+
+        assert_eq!(
+            ymcal.full_moons[9].date_utc.to_string(),
+            "2001-10-02T13:50:48Z"
+        );
+        assert_eq!(ymcal.full_moons[9].name, "Harvest Moon");
+
+        assert_eq!(
+            ymcal.full_moons[10].date_utc.to_string(),
+            "2001-11-01T05:43:10Z"
+        );
+        assert_eq!(ymcal.full_moons[10].name, "Hunter's Moon");
+    }
+
+    #[test]
+    fn yearly_mooncalendar_harvest_and_hunters_moons_override_blue_moon() {
+        let ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(2020, 1, 1, 0, 0, 0));
+
+        assert_eq!(
+            ymcal.full_moons[9].date_utc.to_string(),
+            "2020-10-01T21:06:55Z"
+        );
+        assert_eq!(ymcal.full_moons[9].name, "Harvest Moon");
+
+        assert_eq!(
+            ymcal.full_moons[10].date_utc.to_string(),
+            "2020-10-31T14:51:30Z"
+        );
+        assert_eq!(ymcal.full_moons[10].name, "Hunter's Moon");
+    }
+
+    #[test]
+    fn yearly_mooncalendar_year_with_13_full_moons() {
+        let ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(2020, 1, 1, 0, 0, 0));
+
+        assert_eq!(ymcal.full_moons.len(), 13);
+    }
+
+    #[test]
+    fn yearly_mooncalendar_for_bad_timestamp() {
+        let ymcal = YearlyMoonCalendar::for_timestamp(i64::MIN);
+
+        assert!(ymcal.is_err());
+    }
+
+    #[test]
+    fn yearly_mooncalendar_display() {
+        let mcal = yearly_mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+
+        assert_eq!(
+            mcal.to_string(),
+            "\
+New Moons
+=========
+
+ 1. Sunday    10:56 UTC  1 January 1995
+ 2. Monday    22:49 UTC 30 January 1995
+ 3. Wednesday 11:49 UTC  1 March 1995
+ 4. Friday     2:10 UTC 31 March 1995
+ 5. Saturday  17:38 UTC 29 April 1995
+ 6. Monday     9:28 UTC 29 May   1995
+ 7. Wednesday  0:50 UTC 28 June  1995
+ 8. Thursday  15:13 UTC 27 July  1995
+ 9. Saturday   4:30 UTC 26 August 1995
+10. Sunday    16:54 UTC 24 September 1995
+11. Tuesday    4:36 UTC 24 October 1995
+12. Wednesday 15:42 UTC 22 November 1995
+13. Friday     2:23 UTC 22 December 1995
+
+Full Moons
+==========
+
+ 1. Monday    20:27 UTC 16 January 1995     Wolf Moon
+ 2. Wednesday 12:17 UTC 15 February 1995    Snow Moon
+ 3. Friday     1:27 UTC 17 March 1995       Worm Moon
+ 4. Saturday  12:09 UTC 15 April 1995       Pink Moon
+ 5. Sunday    20:48 UTC 14 May   1995       Flower Moon
+ 6. Tuesday    4:03 UTC 13 June  1995       Strawberry Moon
+ 7. Wednesday 10:49 UTC 12 July  1995       Buck Moon
+ 8. Thursday  18:15 UTC 10 August 1995      Sturgeon Moon
+ 9. Saturday   3:36 UTC  9 September 1995   Harvest Moon
+10. Sunday    15:52 UTC  8 October 1995     Hunter's Moon
+11. Tuesday    7:21 UTC  7 November 1995    Beaver Moon
+12. Thursday   1:28 UTC  7 December 1995    Cold Moon\
+"
+        );
+    }
+
+    #[test]
+    fn yearly_mooncalendar_to_json() {
+        let ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+
+        println!("{}", ymcal.to_json());
+        assert_eq!(
+            ymcal.to_json(),
+            r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"new_moons":[{"date":2449718.9561368735,"date_utc":"1995-01-01T10:56:50Z"},{"date":2449748.45109156,"date_utc":"1995-01-30T22:49:34Z"},{"date":2449777.9930243203,"date_utc":"1995-03-01T11:49:57Z"},{"date":2449807.5908233593,"date_utc":"1995-03-31T02:10:47Z"},{"date":2449837.2348421547,"date_utc":"1995-04-29T17:38:10Z"},{"date":2449866.894783045,"date_utc":"1995-05-29T09:28:29Z"},{"date":2449896.535279648,"date_utc":"1995-06-28T00:50:48Z"},{"date":2449926.134210367,"date_utc":"1995-07-27T15:13:16Z"},{"date":2449955.6881483993,"date_utc":"1995-08-26T04:30:56Z"},{"date":2449985.204571035,"date_utc":"1995-09-24T16:54:35Z"},{"date":2450014.691681338,"date_utc":"1995-10-24T04:36:01Z"},{"date":2450044.154738946,"date_utc":"1995-11-22T15:42:49Z"},{"date":2450073.599341999,"date_utc":"1995-12-22T02:23:03Z"}],"full_moons":[{"date":2449734.3527212553,"date_utc":"1995-01-16T20:27:55Z","name":"Wolf Moon"},{"date":2449764.0119669526,"date_utc":"1995-02-15T12:17:14Z","name":"Snow Moon"},{"date":2449793.5607311586,"date_utc":"1995-03-17T01:27:27Z","name":"Worm Moon"},{"date":2449823.006760471,"date_utc":"1995-04-15T12:09:44Z","name":"Pink Moon"},{"date":2449852.36730699,"date_utc":"1995-05-14T20:48:55Z","name":"Flower Moon"},{"date":2449881.669201127,"date_utc":"1995-06-13T04:03:39Z","name":"Strawberry Moon"},{"date":2449910.9509854037,"date_utc":"1995-07-12T10:49:25Z","name":"Buck Moon"},{"date":2449940.2608532947,"date_utc":"1995-08-10T18:15:38Z","name":"Sturgeon Moon"},{"date":2449969.6503210384,"date_utc":"1995-09-09T03:36:28Z","name":"Harvest Moon"},{"date":2449999.1611133153,"date_utc":"1995-10-08T15:52:00Z","name":"Hunter's Moon"},{"date":2450028.8066145964,"date_utc":"1995-11-07T07:21:32Z","name":"Beaver Moon"},{"date":2450058.561306783,"date_utc":"1995-12-07T01:28:17Z","name":"Cold Moon"}]}"#,
+        );
+    }
+
+    #[test]
+    fn yearly_mooncalendar_to_json_timestamp_error() {
+        let mut ymcal = yearly_mooncal(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
+        ymcal.timestamp = None;
+
+        assert!(ymcal.to_json().contains(r#""timestamp":null,"#));
     }
 
     #[test]

@@ -2,6 +2,7 @@
 
 use moontool::moon::{
     ForDateTime, LocalDateTime, MoonCalendar, MoonPhase, SunCalendar, ToJSON, UTCDateTime,
+    YearlyMoonCalendar,
 };
 use std::fmt::Write;
 use std::{env, process};
@@ -184,6 +185,12 @@ fn for_datetime(datetime: &UTCDateTime, config: &Config) {
         return;
     }
 
+    let ymcal = if config.verbose {
+        Some(YearlyMoonCalendar::for_datetime(datetime))
+    } else {
+        None
+    };
+
     let scal = if config.verbose {
         Some(SunCalendar::for_datetime(datetime))
     } else {
@@ -191,11 +198,11 @@ fn for_datetime(datetime: &UTCDateTime, config: &Config) {
     };
 
     if config.json {
-        print_json(&mphase, &mcal, &scal);
+        print_json(&mphase, &mcal, &ymcal, &scal);
         return;
     }
 
-    print_pretty(&mphase, &mcal, &scal);
+    print_pretty(&mphase, &mcal, &ymcal, &scal);
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -448,8 +455,6 @@ fn render_moon_graphs(mcal: &MoonCalendar, verbose: bool) -> String {
         // Sun.
         graph_data_for_year!("Sun distance to Earth", sun_distance_to_earth_km);
         graph_data_for_year!("Sun subtends", sun_subtends);
-        // TODO: Show equinoxes on this one, once we can compute the data
-        //  (0°, 90°, 180°, 270°).
         graph_data_for_year!("Sun ecliptic longitude", sun_ecliptic_longitude);
     }
 
@@ -509,11 +514,21 @@ fn graph_data_for_year(x: &[f64], y: &[f64], date: &UTCDateTime) -> String {
 }
 
 #[cfg(not(tarpaulin_include))]
-fn print_json(mphase: &MoonPhase, mcal: &MoonCalendar, scal: &Option<SunCalendar>) {
+fn print_json(
+    mphase: &MoonPhase,
+    mcal: &MoonCalendar,
+    ymcal: &Option<YearlyMoonCalendar>,
+    scal: &Option<SunCalendar>,
+) {
     let mphase = mphase.to_json();
     let mcal = mcal.to_json();
 
     print!(r#"{{"phase":{mphase},"calendar":{mcal}"#);
+
+    if let Some(ymcal) = ymcal {
+        let ymcal = ymcal.to_json();
+        print!(r#","yearly_calendar":{ymcal}"#);
+    }
 
     if let Some(scal) = scal {
         let scal = scal.to_json();
@@ -524,12 +539,21 @@ fn print_json(mphase: &MoonPhase, mcal: &MoonCalendar, scal: &Option<SunCalendar
 }
 
 #[cfg(not(tarpaulin_include))]
-fn print_pretty(mphase: &MoonPhase, mcal: &MoonCalendar, scal: &Option<SunCalendar>) {
+fn print_pretty(
+    mphase: &MoonPhase,
+    mcal: &MoonCalendar,
+    ymcal: &Option<YearlyMoonCalendar>,
+    scal: &Option<SunCalendar>,
+) {
     println!("\n{mphase}\n");
     println!("{mcal}\n");
 
     if let Some(scal) = scal {
         println!("{scal}\n");
+    }
+
+    if let Some(ymcal) = ymcal {
+        println!("{ymcal}\n");
     }
 }
 

@@ -139,12 +139,7 @@ pub trait ForDateTime: Sized {
 
     #[must_use]
     fn for_ymdhms(year: i32, month: u32, day: u32, hour: u32, minute: u32, second: u32) -> Self {
-        let datetime = UTCDateTime::from_ymddhms(
-            year, month, day,
-            // This is fine, weekday is not used in calculations. Fixing
-            // it to some value prevents needless extra computations.
-            99, hour, minute, second,
-        );
+        let datetime = UTCDateTime::from_ymdhms(year, month, day, hour, minute, second);
         Self::for_datetime(&datetime)
     }
 
@@ -333,7 +328,7 @@ impl fmt::Display for MoonPhase {
         writeln!(
             f,
             "Universal time:\t\t{:<9} {:>2}:{:0>2}:{:0>2} {:>2} {:<5} {}",
-            DAYNAME[gm.weekday as usize],
+            DAYNAME[gm.weekday() as usize],
             gm.hour,
             gm.minute,
             gm.second,
@@ -346,7 +341,7 @@ impl fmt::Display for MoonPhase {
             writeln!(
                 f,
                 "Local time:\t\t{:<9} {:>2}:{:0>2}:{:0>2} {:>2} {:<5} {}\n",
-                DAYNAME[tm.weekday as usize],
+                DAYNAME[tm.weekday() as usize],
                 tm.hour,
                 tm.minute,
                 tm.second,
@@ -726,22 +721,10 @@ fn suncal(gm: &UTCDateTime) -> SunCalendar {
 
     let jd = gm.to_julian_date();
 
-    // TODO: maybe extract this, we've got it 3 time already,
-    //  and there will be more with year full/new moons calendars.
-    let gm = UTCDateTime {
-        year: gm.year,
-        month: gm.month,
-        day: gm.day,
-        weekday: jwday(jd).unsigned_abs(),
-        hour: gm.hour,
-        minute: gm.minute,
-        second: gm.second,
-    };
-
     SunCalendar {
         julian_date: jd,
         timestamp: gm.to_timestamp().ok(),
-        utc_datetime: gm,
+        utc_datetime: gm.clone(),
         march_equinox,
         march_equinox_utc: UTCDateTime::from_julian_date(march_equinox),
         june_solstice,
@@ -878,20 +861,10 @@ fn moonphase(gm: &UTCDateTime) -> MoonPhase {
 
     let phase_fraction = fraction_of_lunation_to_phase(phase_info.phase);
 
-    let gm = UTCDateTime {
-        year: gm.year,
-        month: gm.month,
-        day: gm.day,
-        weekday: jwday(jd).unsigned_abs(),
-        hour: gm.hour,
-        minute: gm.minute,
-        second: gm.second,
-    };
-
     MoonPhase {
         julian_date: jd,
         timestamp: gm.to_timestamp().ok(),
-        utc_datetime: gm,
+        utc_datetime: gm.clone(),
         age: phase_info.age,
         fraction_of_lunation: phase_info.phase,
         phase: phase_fraction,
@@ -918,20 +891,10 @@ fn mooncal(gm: &UTCDateTime) -> MoonCalendar {
     let phasar = phasehunt(jd + 0.5);
     let lunation = ((((phasar.0 + 7.0) - LUNATBASE) / SYNMONTH).floor().trunc() as i64) + 1;
 
-    let gm = UTCDateTime {
-        year: gm.year,
-        month: gm.month,
-        day: gm.day,
-        weekday: jwday(jd).unsigned_abs(),
-        hour: gm.hour,
-        minute: gm.minute,
-        second: gm.second,
-    };
-
     MoonCalendar {
         julian_date: jd,
         timestamp: gm.to_timestamp().ok(),
-        utc_datetime: gm,
+        utc_datetime: gm.clone(),
         lunation,
         last_new_moon: phasar.0,
         last_new_moon_utc: jtouct(phasar.0),
@@ -950,7 +913,7 @@ fn mooncal(gm: &UTCDateTime) -> MoonCalendar {
 fn fmt_phase_time(gm: &UTCDateTime) -> String {
     format!(
         "{:<9} {:>2}:{:0>2} UTC {:>2} {:<5} {}",
-        DAYNAME[gm.weekday as usize],
+        DAYNAME[gm.weekday() as usize],
         gm.hour,
         gm.minute,
         gm.day,
@@ -1012,13 +975,11 @@ fn ucttoj(year: i32, month: u32, mday: u32, hour: u32, minute: u32, second: u32)
 fn jtouct(utime: f64) -> UTCDateTime {
     let (yy, mm, dd) = jyear(utime);
     let (hh, mmm, ss) = jhms(utime);
-    let wday = jwday(utime);
 
     UTCDateTime {
         year: yy,
         month: mm.unsigned_abs(),
         day: dd.unsigned_abs(),
-        weekday: wday.unsigned_abs(),
         hour: hh.unsigned_abs(),
         minute: mmm.unsigned_abs(),
         second: ss.unsigned_abs(),
@@ -1063,6 +1024,9 @@ fn jhms(mut j: f64) -> (i32, i32, i32) {
 }
 
 /// Determine day of the week for a given Julian day.
+///
+/// Not used, but kept for reference.
+#[allow(dead_code)]
 fn jwday(j: f64) -> i32 {
     (((j + 1.5).trunc() as i64) % 7).abs() as i32
 }
@@ -1419,7 +1383,7 @@ mod tests {
             MoonPhase {
                 julian_date: 2_449_787.569_444_444_5,
                 timestamp: Some(794_886_000),
-                utc_datetime: UTCDateTime::from_ymddhms(1995, 3, 11, 6, 1, 40, 0),
+                utc_datetime: UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0),
                 age: 8.861_826_144_635_483,
                 fraction_of_lunation: 0.300_089_721_903_758_6,
                 phase: 3,
@@ -1540,15 +1504,15 @@ Sun subtends:\t\t0.5367 degrees.\
                 utc_datetime: UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0),
                 lunation: 893,
                 last_new_moon: 2_449_777.993_024_320_3,
-                last_new_moon_utc: UTCDateTime::from_ymddhms(1995, 3, 1, 3, 11, 49, 57),
+                last_new_moon_utc: UTCDateTime::from_ymdhms(1995, 3, 1, 11, 49, 57),
                 first_quarter: 2_449_785.925_942_567_6,
-                first_quarter_utc: UTCDateTime::from_ymddhms(1995, 3, 9, 4, 10, 13, 21),
+                first_quarter_utc: UTCDateTime::from_ymdhms(1995, 3, 9, 10, 13, 21),
                 full_moon: 2_449_793.560_731_158_6,
-                full_moon_utc: UTCDateTime::from_ymddhms(1995, 3, 17, 5, 1, 27, 27),
+                full_moon_utc: UTCDateTime::from_ymdhms(1995, 3, 17, 1, 27, 27),
                 last_quarter: 2_449_800.341_072_181_2,
-                last_quarter_utc: UTCDateTime::from_ymddhms(1995, 3, 23, 4, 20, 11, 9),
+                last_quarter_utc: UTCDateTime::from_ymdhms(1995, 3, 23, 20, 11, 9),
                 next_new_moon: 2_449_807.590_823_359_3,
-                next_new_moon_utc: UTCDateTime::from_ymddhms(1995, 3, 31, 5, 2, 10, 47),
+                next_new_moon_utc: UTCDateTime::from_ymdhms(1995, 3, 31, 2, 10, 47),
             }
         );
     }
@@ -1653,28 +1617,22 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
 
     #[test]
     fn suncalendar_before_1000_ad() {
-        let mut scal = suncal(&UTCDateTime::from_ymdhms(420, 3, 6, 9, 42, 12));
-
-        scal.utc_datetime.weekday = 99;
-        scal.march_equinox_utc.weekday = 99;
-        scal.june_solstice_utc.weekday = 99;
-        scal.september_equinox_utc.weekday = 99;
-        scal.december_solstice_utc.weekday = 99;
+        let scal = suncal(&UTCDateTime::from_ymdhms(420, 3, 6, 9, 42, 12));
 
         assert_eq!(
             scal,
             SunCalendar {
                 julian_date: 1_874_527.904_305_555_6,
                 timestamp: Some(-48_907_635_468),
-                utc_datetime: UTCDateTime::from_ymddhms(420, 3, 6, 99, 9, 42, 12),
+                utc_datetime: UTCDateTime::from_ymdhms(420, 3, 6, 9, 42, 12),
                 march_equinox: 1_874_541.007_477_060_2,
-                march_equinox_utc: UTCDateTime::from_ymddhms(420, 3, 19, 99, 12, 10, 46),
+                march_equinox_utc: UTCDateTime::from_ymdhms(420, 3, 19, 12, 10, 46),
                 june_solstice: 1_874_634.777_248_703_4,
-                june_solstice_utc: UTCDateTime::from_ymddhms(420, 6, 21, 99, 6, 39, 14),
+                june_solstice_utc: UTCDateTime::from_ymdhms(420, 6, 21, 6, 39, 14),
                 september_equinox: 1_874_727.537_210_142,
-                september_equinox_utc: UTCDateTime::from_ymddhms(420, 9, 22, 99, 0, 53, 35),
+                september_equinox_utc: UTCDateTime::from_ymdhms(420, 9, 22, 0, 53, 35),
                 december_solstice: 1_874_816.418_745_953_4,
-                december_solstice_utc: UTCDateTime::from_ymddhms(420, 12, 19, 99, 22, 3, 0),
+                december_solstice_utc: UTCDateTime::from_ymdhms(420, 12, 19, 22, 3, 0),
             }
         );
     }
@@ -1817,7 +1775,7 @@ December solstice:\tFriday     8:18 UTC 22 December 1995\
 
     #[test]
     fn fmt_phase_time_regular() {
-        let gm = UTCDateTime::from_ymddhms(1995, 3, 12, 0, 11, 16, 26);
+        let gm = UTCDateTime::from_ymdhms(1995, 3, 12, 11, 16, 26);
 
         let res = fmt_phase_time(&gm);
 
@@ -1826,42 +1784,42 @@ December solstice:\tFriday     8:18 UTC 22 December 1995\
 
     #[test]
     fn fmt_phase_time_month_padding() {
-        let mut gm = UTCDateTime::from_ymddhms(1995, 3, 12, 0, 11, 16, 26);
+        let mut gm = UTCDateTime::from_ymdhms(1995, 3, 12, 11, 16, 26);
 
         gm.month = 5; // May (shortest)
-        assert_eq!(fmt_phase_time(&gm), "Sunday    11:16 UTC 12 May   1995");
+        assert_eq!(fmt_phase_time(&gm), "Friday    11:16 UTC 12 May   1995");
 
         gm.month = 9; // September (longest)
-        assert_eq!(fmt_phase_time(&gm), "Sunday    11:16 UTC 12 September 1995");
+        assert_eq!(fmt_phase_time(&gm), "Tuesday   11:16 UTC 12 September 1995");
 
         gm.month = 7; // July (4 chars = 1 char padding)
-        assert_eq!(fmt_phase_time(&gm), "Sunday    11:16 UTC 12 July  1995");
+        assert_eq!(fmt_phase_time(&gm), "Wednesday 11:16 UTC 12 July  1995");
 
         gm.month = 3; // March (5 chars = exact)
         assert_eq!(fmt_phase_time(&gm), "Sunday    11:16 UTC 12 March 1995");
 
         gm.month = 8; // August (6 chars = no padding)
-        assert_eq!(fmt_phase_time(&gm), "Sunday    11:16 UTC 12 August 1995");
+        assert_eq!(fmt_phase_time(&gm), "Saturday  11:16 UTC 12 August 1995");
     }
 
     #[test]
     fn fmt_phase_time_at_boundaries() {
-        let mut gm = UTCDateTime::from_ymddhms(1995, 3, 12, 0, 11, 16, 26);
+        let mut gm = UTCDateTime::from_ymdhms(1995, 3, 12, 11, 16, 26);
 
-        gm.weekday = 0; // Sunday
+        gm.day = 12; // Sunday
         assert_eq!(fmt_phase_time(&gm), "Sunday    11:16 UTC 12 March 1995");
 
-        gm.weekday = 1; // Monday
-        assert_eq!(fmt_phase_time(&gm), "Monday    11:16 UTC 12 March 1995");
+        gm.day = 13; // Monday
+        assert_eq!(fmt_phase_time(&gm), "Monday    11:16 UTC 13 March 1995");
 
-        gm.weekday = 6; // Saturday
-        assert_eq!(fmt_phase_time(&gm), "Saturday  11:16 UTC 12 March 1995");
+        gm.day = 11; // Saturday
+        assert_eq!(fmt_phase_time(&gm), "Saturday  11:16 UTC 11 March 1995");
 
         gm.month = 1; // January
-        assert_eq!(fmt_phase_time(&gm), "Saturday  11:16 UTC 12 January 1995");
+        assert_eq!(fmt_phase_time(&gm), "Wednesday 11:16 UTC 11 January 1995");
 
         gm.month = 12; // December
-        assert_eq!(fmt_phase_time(&gm), "Saturday  11:16 UTC 12 December 1995");
+        assert_eq!(fmt_phase_time(&gm), "Monday    11:16 UTC 11 December 1995");
     }
 
     #[test]
@@ -1917,7 +1875,7 @@ December solstice:\tFriday     8:18 UTC 22 December 1995\
     fn jtouct_regular() {
         let gm = jtouct(2_438_749.732_639);
 
-        assert_eq!(gm, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 5, 35, 0));
+        assert_eq!(gm, UTCDateTime::from_ymdhms(1964, 12, 20, 5, 35, 0));
     }
 
     #[test]

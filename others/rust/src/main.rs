@@ -999,7 +999,7 @@ Sun ecliptic longitude 2024
     fn try_parse_datetime_timestamp() {
         let dt = try_parse_datetime("966600000").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(2000, 8, 18, 5, 12, 0, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(2000, 8, 18, 12, 0, 0));
     }
 
     #[test]
@@ -1013,7 +1013,7 @@ Sun ecliptic longitude 2024
     fn try_parse_datetime_datetime() {
         let dt = try_parse_datetime("1964-12-20T04:35:00Z").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(1964, 12, 20, 4, 35, 0));
     }
 
     #[test]
@@ -1027,21 +1027,21 @@ Sun ecliptic longitude 2024
     fn try_from_timestamp_positive() {
         let dt = try_from_timestamp("966600000").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(2000, 8, 18, 5, 12, 0, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(2000, 8, 18, 12, 0, 0));
     }
 
     #[test]
     fn try_from_timestamp_zero() {
         let dt = try_from_timestamp("0").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(1970, 1, 1, 4, 0, 0, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(1970, 1, 1, 0, 0, 0));
     }
 
     #[test]
     fn try_from_timestamp_negative() {
         let dt = try_from_timestamp("-58200600").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(1968, 2, 27, 2, 9, 10, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0));
     }
 
     #[test]
@@ -1069,28 +1069,28 @@ Sun ecliptic longitude 2024
     fn try_from_julian_date_zero() {
         let dt = try_from_julian_date("0.0").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(-4712, 1, 1, 1, 12, 0, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(-4712, 1, 1, 12, 0, 0));
     }
 
     #[test]
     fn try_from_datetime_regular() {
         let dt = try_from_iso_string("1964-12-20T04:35:00Z").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(1964, 12, 20, 4, 35, 0));
     }
 
     #[test]
     fn try_from_datetime_implicit_utc() {
         let dt = try_from_iso_string("1964-12-20T04:35:00").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(1964, 12, 20, 4, 35, 0));
     }
 
     #[test]
     fn try_from_datetime_offset() {
         let dt = try_from_iso_string("1964-12-20T05:35:00+01:00").unwrap();
 
-        assert_eq!(dt, UTCDateTime::from_ymddhms(1964, 12, 20, 0, 4, 35, 0));
+        assert_eq!(dt, UTCDateTime::from_ymdhms(1964, 12, 20, 4, 35, 0));
     }
 
     #[test]
@@ -1104,7 +1104,7 @@ Sun ecliptic longitude 2024
     fn from_date() {
         let d = try_from_iso_string("1938-07-15").unwrap();
 
-        assert_eq!(d, UTCDateTime::from_ymddhms(1938, 7, 15, 5, 0, 0, 0));
+        assert_eq!(d, UTCDateTime::from_ymdhms(1938, 7, 15, 0, 0, 0));
     }
 
     #[test]

@@ -11,9 +11,7 @@
     clippy::many_single_char_names
 )]
 
-mod datetime;
-
-pub use datetime::{LocalDateTime, UTCDateTime};
+pub use crate::datetime::{LocalDateTime, UTCDateTime};
 use std::{fmt, fmt::Write};
 
 //  Astronomical constants
@@ -1198,7 +1196,7 @@ fn fmt_phase_time(gm: &UTCDateTime) -> String {
 /// Convert UTC date/time to astronomical Julian time.
 ///
 /// (i.e. Julian date plus day fraction, expressed as a floating point).
-fn jtime(t: &UTCDateTime) -> f64 {
+pub(crate) fn jtime(t: &UTCDateTime) -> f64 {
     ucttoj(t.year, t.month - 1, t.day, t.hour, t.minute, t.second)
 }
 
@@ -1245,7 +1243,7 @@ fn ucttoj(year: i32, month: u32, mday: u32, hour: u32, minute: u32, second: u32)
 }
 
 /// Convert astronomical Julian time to GMT date and time.
-fn jtouct(utime: f64) -> UTCDateTime {
+pub(crate) fn jtouct(utime: f64) -> UTCDateTime {
     let (yy, mm, dd) = jyear(utime);
     let (hh, mmm, ss) = jhms(utime);
 

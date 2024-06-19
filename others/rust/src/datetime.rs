@@ -1,6 +1,8 @@
 // Date and time handling functions.
 // Everything time-rs is confined in here.
 
+use crate::moon;
+
 use std::fmt;
 use std::str::FromStr;
 
@@ -86,6 +88,8 @@ fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime,
     })
 }
 
+// If it gets truncated, values are wrong anyway.
+#[allow(clippy::cast_possible_truncation)]
 fn utcdatetime_to_offsetdatetime(
     datetime: &UTCDateTime,
 ) -> Result<time::OffsetDateTime, &'static str> {
@@ -285,7 +289,7 @@ impl UTCDateTime {
     /// Convert astronomical Julian date to `UTCDateTime`.
     #[must_use]
     pub fn from_julian_date(julian_date: f64) -> Self {
-        super::jtouct(julian_date)
+        moon::jtouct(julian_date)
     }
 
     /// Convert `UTCDateTime` to astronomical Julian date.
@@ -329,7 +333,7 @@ impl UTCDateTime {
     /// ```
     #[must_use]
     pub fn to_julian_date(&self) -> f64 {
-        super::jtime(self)
+        moon::jtime(self)
     }
 
     /// Convert `UTCDateTime` to civil Julian date.
@@ -692,6 +696,7 @@ mod tests {
     // UTCDateTime.
 
     #[test]
+    #[allow(clippy::many_single_char_names)]
     fn every_way_of_creating_utcdatetime_gives_same_result() {
         let a = UTCDateTime {
             year: 1968,

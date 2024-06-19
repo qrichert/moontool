@@ -30,5 +30,5 @@
 //! - <https://fourmilab.ch/moontool/>
 //! - <https://fourmilab.ch/moontoolw/>
 
+pub mod datetime;
 pub mod moon;
-// TODO pub mod datetime; here instead of nesting

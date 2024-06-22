@@ -1,10 +1,52 @@
-// Date and time handling functions.
-// Everything time-rs is confined in here.
+//! Date and time handling functions.
 
 use crate::moon;
 
 use std::fmt;
 use std::str::FromStr;
+
+const MONAME: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
+const DAYNAME: [&str; 7] = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+];
+
+fn monthname(month: u32) -> Result<&'static str, &'static str> {
+    let month = month as usize;
+    if month < 1 || month > MONAME.len() {
+        return Err("Invalid month.");
+    }
+    Ok(MONAME[month - 1])
+}
+
+fn dayname(day: u32) -> Result<&'static str, &'static str> {
+    let day = day as usize;
+    if day >= DAYNAME.len() {
+        return Err("Invalid day.");
+    }
+    Ok(DAYNAME[day])
+}
+
+// Everything time-rs is confined in here.
 
 #[cfg(not(tarpaulin_include))]
 fn utcdatetime_now() -> UTCDateTime {
@@ -209,10 +251,36 @@ pub struct UTCDateTime {
 }
 
 impl UTCDateTime {
-    /// `[0 = Sunday, 6 = Saturday]`
-    #[must_use]
-    pub fn weekday(&self) -> u32 {
-        weekday_for_utcdatetime(self).unwrap_or(99)
+    /// Name of month in English.
+    ///
+    /// # Errors
+    ///
+    /// Errors if month is not a number between 1 and 12.
+    pub fn monthname(&self) -> Result<&'static str, &'static str> {
+        monthname(self.month)
+    }
+
+    /// Day of week as offset from Sunday.
+    ///
+    /// - 0 = Sunday
+    /// - 1 = Monday
+    /// - ...
+    /// - 6 = Saturday
+    ///
+    /// # Errors
+    ///
+    /// Errors if date or time is invalid.
+    pub fn weekday(&self) -> Result<u32, &'static str> {
+        weekday_for_utcdatetime(self)
+    }
+
+    /// Name of day in English.
+    ///
+    /// # Errors
+    ///
+    /// Errors if date or time is invalid.
+    pub fn dayname(&self) -> Result<&'static str, &'static str> {
+        dayname(self.weekday()?)
     }
 }
 
@@ -224,10 +292,6 @@ impl UTCDateTime {
     }
 
     /// From raw Year, Month, Day, Hour, Minute, Second values.
-    ///
-    /// # Errors
-    ///
-    /// If weekday cannot be determined, it will be set to 99.
     #[must_use]
     pub fn from_ymdhms(
         year: i32,
@@ -466,11 +530,39 @@ pub struct LocalDateTime {
 }
 
 impl LocalDateTime {
-    /// `[0 = Sunday, 6 = Saturday]`
+    /// Name of month in English.
+    ///
+    /// # Errors
+    ///
+    /// Errors if month is not a number between 1 and 12.
     #[cfg(not(tarpaulin_include))]
-    #[must_use]
-    pub fn weekday(&self) -> u32 {
-        weekday_for_localdatetime(self).unwrap_or(99)
+    pub fn monthname(&self) -> Result<&'static str, &'static str> {
+        monthname(self.month)
+    }
+
+    /// Day of week as offset from Sunday.
+    ///
+    /// - 0 = Sunday
+    /// - 1 = Monday
+    /// - ...
+    /// - 6 = Saturday
+    ///
+    /// # Errors
+    ///
+    /// Errors if date or time is invalid.
+    #[cfg(not(tarpaulin_include))]
+    pub fn weekday(&self) -> Result<u32, &'static str> {
+        weekday_for_localdatetime(self)
+    }
+
+    /// Name of day in English.
+    ///
+    /// # Errors
+    ///
+    /// Errors if date or time is invalid.
+    #[cfg(not(tarpaulin_include))]
+    pub fn dayname(&self) -> Result<&'static str, &'static str> {
+        dayname(self.weekday()?)
     }
 }
 
@@ -509,6 +601,36 @@ mod tests {
     }
 
     // Date/time utils
+
+    #[test]
+    fn month_number_to_name() {
+        assert!(monthname(0).is_err());
+        assert_eq!(monthname(1).unwrap(), "January");
+        assert_eq!(monthname(2).unwrap(), "February");
+        assert_eq!(monthname(3).unwrap(), "March");
+        assert_eq!(monthname(4).unwrap(), "April");
+        assert_eq!(monthname(5).unwrap(), "May");
+        assert_eq!(monthname(6).unwrap(), "June");
+        assert_eq!(monthname(7).unwrap(), "July");
+        assert_eq!(monthname(8).unwrap(), "August");
+        assert_eq!(monthname(9).unwrap(), "September");
+        assert_eq!(monthname(10).unwrap(), "October");
+        assert_eq!(monthname(11).unwrap(), "November");
+        assert_eq!(monthname(12).unwrap(), "December");
+        assert!(monthname(13).is_err());
+    }
+
+    #[test]
+    fn day_number_to_name() {
+        assert_eq!(dayname(0).unwrap(), "Sunday");
+        assert_eq!(dayname(1).unwrap(), "Monday");
+        assert_eq!(dayname(2).unwrap(), "Tuesday");
+        assert_eq!(dayname(3).unwrap(), "Wednesday");
+        assert_eq!(dayname(4).unwrap(), "Thursday");
+        assert_eq!(dayname(5).unwrap(), "Friday");
+        assert_eq!(dayname(6).unwrap(), "Saturday");
+        assert!(dayname(7).is_err());
+    }
 
     #[test]
     fn utcdatetime_to_timestamp_regular() {
@@ -869,6 +991,27 @@ mod tests {
                 time::Time::from_hms(0, 0, 0).unwrap()
             )
         );
+    }
+
+    #[test]
+    fn utcdatetime_monthname() {
+        let dt = UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0);
+
+        assert_eq!(dt.monthname().unwrap(), "February");
+    }
+
+    #[test]
+    fn utcdatetime_weekday() {
+        let dt = UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0);
+
+        assert_eq!(dt.weekday().unwrap(), 2);
+    }
+
+    #[test]
+    fn utcdatetime_dayname() {
+        let dt = UTCDateTime::from_ymdhms(1968, 2, 27, 9, 10, 0);
+
+        assert_eq!(dt.dayname().unwrap(), "Tuesday");
     }
 
     #[test]

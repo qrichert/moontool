@@ -70,33 +70,6 @@ macro_rules! EPL {
     };
 }
 
-// TODO: We should probably refactor those, we're far from the C API
-// now anyway.
-const MONAME: [&str; 12] = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-];
-
-const DAYNAME: [&str; 7] = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-];
-
 const PHANAME: [&str; 8] = [
     "New Moon",
     "Waxing Crescent",
@@ -329,12 +302,12 @@ impl fmt::Display for MoonPhase {
         writeln!(
             f,
             "Universal time:\t\t{:<9} {:>2}:{:0>2}:{:0>2} {:>2} {:<5} {}",
-            DAYNAME[gm.weekday() as usize],
+            gm.dayname().unwrap_or(""),
             gm.hour,
             gm.minute,
             gm.second,
             gm.day,
-            MONAME[(gm.month - 1) as usize],
+            gm.monthname().unwrap_or(""),
             gm.year,
         )?;
 
@@ -342,12 +315,12 @@ impl fmt::Display for MoonPhase {
             writeln!(
                 f,
                 "Local time:\t\t{:<9} {:>2}:{:0>2}:{:0>2} {:>2} {:<5} {}\n",
-                DAYNAME[tm.weekday() as usize],
+                tm.dayname().unwrap_or(""),
                 tm.hour,
                 tm.minute,
                 tm.second,
                 tm.day,
-                MONAME[(tm.month - 1) as usize],
+                tm.monthname().unwrap_or(""),
                 tm.year,
             )?;
         } else {
@@ -1184,11 +1157,11 @@ fn mooncal(gm: &UTCDateTime) -> MoonCalendar {
 fn fmt_phase_time(gm: &UTCDateTime) -> String {
     format!(
         "{:<9} {:>2}:{:0>2} UTC {:>2} {:<5} {}",
-        DAYNAME[gm.weekday() as usize], // TODO: Can weekday be 99 here? => Return Result and do something useful instead (just leave blank). Same elsewhere.
+        gm.dayname().unwrap_or(""),
         gm.hour,
         gm.minute,
         gm.day,
-        MONAME[(gm.month - 1) as usize],
+        gm.monthname().unwrap_or(""),
         gm.year,
     )
 }
@@ -2414,6 +2387,15 @@ December solstice:\tFriday     8:18 UTC 22 December 1995\
 
         gm.month = 12; // December
         assert_eq!(fmt_phase_time(&gm), "Monday    11:16 UTC 11 December 1995");
+    }
+
+    #[test]
+    fn fmt_phase_time_bad_datetime() {
+        let gm = UTCDateTime::from_ymdhms(1995, 0, 42, 11, 16, 26);
+
+        let res = fmt_phase_time(&gm);
+
+        assert_eq!(res, "          11:16 UTC 42       1995");
     }
 
     #[test]

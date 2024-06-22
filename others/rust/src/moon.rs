@@ -92,6 +92,31 @@ const MOONICN: [&str; 8] = [
     "\u{1f318}", // 🌘
 ];
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum Phase {
+    NewMoon = 0,
+    WaxingCrescent = 1,
+    FirstQuarter = 2,
+    WaxingGibbous = 3,
+    FullMoon = 4,
+    WaningGibbous = 5,
+    LastQuarter = 6,
+    WaningCrescent = 7,
+}
+
+impl Phase {
+    #[must_use]
+    pub fn name(&self) -> &'static str {
+        PHANAME[*self as usize]
+    }
+
+    #[must_use]
+    pub fn icon(&self) -> &'static str {
+        MOONICN[*self as usize]
+    }
+}
+
 /// Compute values for a given date and time.
 pub trait ForDateTime: Sized {
     #[cfg(not(tarpaulin_include))]
@@ -204,7 +229,7 @@ struct PhaseInfo {
 ///
 /// let mphase = MoonPhase::for_ymdhms(2024, 5, 4, 10, 0, 0);
 ///
-/// assert_eq!(mphase.phase_name, "Waning Crescent");
+/// assert_eq!(mphase.phase.name(), "Waning Crescent");
 /// ```
 ///
 /// # Errors
@@ -219,9 +244,7 @@ pub struct MoonPhase {
     pub utc_datetime: UTCDateTime,
     pub age: f64,
     pub fraction_of_lunation: f64,
-    pub phase: usize,
-    pub phase_name: String,
-    pub phase_icon: String,
+    pub phase: Phase,
     pub fraction_illuminated: f64,
     /// Angular distance around the geocentric ecliptic (λ).
     ///
@@ -341,8 +364,8 @@ impl fmt::Display for MoonPhase {
             f,
             "Lunation:\t\t{:.2}%   ({} {})",
             self.fraction_of_lunation * 100.0,
-            self.phase_icon,
-            self.phase_name
+            self.phase.icon(),
+            self.phase.name()
         )?;
         writeln!(
             f,
@@ -384,9 +407,11 @@ impl ToJSON for MoonPhase {
             r#""fraction_of_lunation":{},"#,
             self.fraction_of_lunation
         );
-        write_to!(json, r#""phase":{},"#, self.phase);
-        write_to!(json, r#""phase_name":"{}","#, self.phase_name);
-        write_to!(json, r#""phase_icon":"{}","#, self.phase_icon);
+        write_to!(json, r#""phase":{{"#);
+        write_to!(json, r#""index":{},"#, self.phase as u8);
+        write_to!(json, r#""name":"{}","#, self.phase.name());
+        write_to!(json, r#""icon":"{}""#, self.phase.icon());
+        write_to!(json, "}},");
         write_to!(
             json,
             r#""fraction_illuminated":{},"#,
@@ -1067,7 +1092,7 @@ fn solarevent(year: i32, event: SolarEvent) -> f64 {
     jde0 + (0.000_01 * S) / dL
 }
 
-fn fraction_of_lunation_to_phase(p: f64) -> usize {
+fn fraction_of_lunation_to_phase(p: f64) -> Phase {
     // Apart from Waxing and Waning, the other phases are very precise
     // points in time. For example, Full Moon occurs precisely at
     // `phase = 0.5`. This is too restrictive; for an observer, the Moon
@@ -1077,23 +1102,23 @@ fn fraction_of_lunation_to_phase(p: f64) -> usize {
     let day_frac: f64 = (1.0 / SYNMONTH) * 0.75;
 
     if p < 0.00 + day_frac {
-        0 // New Moon
+        Phase::NewMoon
     } else if p < 0.25 - day_frac {
-        1 // Waxing Crescent
+        Phase::WaxingCrescent
     } else if p < 0.25 + day_frac {
-        2 // First Quarter
+        Phase::FirstQuarter
     } else if p < 0.50 - day_frac {
-        3 // Waxing Gibbous
+        Phase::WaxingGibbous
     } else if p < 0.50 + day_frac {
-        4 // Full Moon
+        Phase::FullMoon
     } else if p < 0.75 - day_frac {
-        5 // Waning Gibbous
+        Phase::WaningGibbous
     } else if p < 0.75 + day_frac {
-        6 // Last Quarter
+        Phase::LastQuarter
     } else if p < 1.00 - day_frac {
-        7 // Waning Crescent
+        Phase::WaningCrescent
     } else {
-        0 // New Moon
+        Phase::NewMoon
     }
 }
 
@@ -1103,7 +1128,7 @@ fn moonphase(gm: &UTCDateTime) -> MoonPhase {
 
     let phase_info = phase(jd);
 
-    let phase_fraction = fraction_of_lunation_to_phase(phase_info.phase);
+    let phase_type = fraction_of_lunation_to_phase(phase_info.phase);
 
     MoonPhase {
         julian_date: jd,
@@ -1111,9 +1136,7 @@ fn moonphase(gm: &UTCDateTime) -> MoonPhase {
         utc_datetime: gm.clone(),
         age: phase_info.age,
         fraction_of_lunation: phase_info.phase,
-        phase: phase_fraction,
-        phase_name: String::from(PHANAME[phase_fraction]),
-        phase_icon: String::from(MOONICN[phase_fraction]),
+        phase: phase_type,
         fraction_illuminated: phase_info.fraction_illuminated,
         ecliptic_longitude: phase_info.ecliptic_longitude,
         ecliptic_latitude: phase_info.ecliptic_latitude,
@@ -1630,9 +1653,7 @@ mod tests {
                 utc_datetime: UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0),
                 age: 8.861_826_144_635_483,
                 fraction_of_lunation: 0.300_089_721_903_758_6,
-                phase: 3,
-                phase_name: String::from("Waxing Gibbous"),
-                phase_icon: String::from("🌔"),
+                phase: Phase::WaxingGibbous,
                 fraction_illuminated: 0.654_776_546_611_648_4,
                 ecliptic_longitude: 97.951_619_640_492_27,
                 ecliptic_latitude: -5.389_251_414_139_025,
@@ -1646,6 +1667,8 @@ mod tests {
                 sun_subtends: 0.536_699_858_701_845_1,
             }
         );
+        assert_eq!(mphase.phase.name(), String::from("Waxing Gibbous"));
+        assert_eq!(mphase.phase.icon(), String::from("🌔"));
     }
 
     #[test]
@@ -1704,7 +1727,7 @@ Sun subtends:\t\t0.5367 degrees.\
 
         assert_eq!(
             json,
-            r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"utc_datetime":"1995-03-11T01:40:00Z","age":8.861826144635483,"fraction_of_lunation":0.3000897219037586,"phase":3,"phase_name":"Waxing Gibbous","phase_icon":"🌔","fraction_illuminated":0.6547765466116484,"ecliptic_longitude":97.95161964049227,"ecliptic_latitude":-5.389251414139025,"parallax":0.9083924050990154,"distance_to_earth_km":402304.145927074,"distance_to_earth_earth_radii":63.07526715025556,"subtends":0.49504376257683796,"sun_ecliptic_longitude":350.01941250623565,"sun_distance_to_earth_km":148602888.21560264,"sun_distance_to_earth_astronomical_units":0.9933447742831822,"sun_subtends":0.5366998587018451}"#,
+            r#"{"julian_date":2449787.5694444445,"timestamp":794886000,"utc_datetime":"1995-03-11T01:40:00Z","age":8.861826144635483,"fraction_of_lunation":0.3000897219037586,"phase":{"index":3,"name":"Waxing Gibbous","icon":"🌔"},"fraction_illuminated":0.6547765466116484,"ecliptic_longitude":97.95161964049227,"ecliptic_latitude":-5.389251414139025,"parallax":0.9083924050990154,"distance_to_earth_km":402304.145927074,"distance_to_earth_earth_radii":63.07526715025556,"subtends":0.49504376257683796,"sun_ecliptic_longitude":350.01941250623565,"sun_distance_to_earth_km":148602888.21560264,"sun_distance_to_earth_astronomical_units":0.9933447742831822,"sun_subtends":0.5366998587018451}"#,
         );
     }
 
@@ -2252,91 +2275,91 @@ December solstice:\tFriday     8:18 UTC 22 December 1995\
 
     #[test]
     fn fraction_of_lunation_to_phase_number() {
-        let new_moon_start = fraction_of_lunation_to_phase(0.0);
+        let new_moon_start = fraction_of_lunation_to_phase(0.0) as u8;
         assert_eq!(new_moon_start, 0);
 
-        let waxing_crescent = fraction_of_lunation_to_phase(0.15);
+        let waxing_crescent = fraction_of_lunation_to_phase(0.15) as u8;
         assert_eq!(waxing_crescent, 1);
 
-        let first_quarter = fraction_of_lunation_to_phase(0.25);
+        let first_quarter = fraction_of_lunation_to_phase(0.25) as u8;
         assert_eq!(first_quarter, 2);
 
-        let waxing_gibbous = fraction_of_lunation_to_phase(0.35);
+        let waxing_gibbous = fraction_of_lunation_to_phase(0.35) as u8;
         assert_eq!(waxing_gibbous, 3);
 
-        let full_moon = fraction_of_lunation_to_phase(0.5);
+        let full_moon = fraction_of_lunation_to_phase(0.5) as u8;
         assert_eq!(full_moon, 4);
 
-        let waning_gibbous = fraction_of_lunation_to_phase(0.65);
+        let waning_gibbous = fraction_of_lunation_to_phase(0.65) as u8;
         assert_eq!(waning_gibbous, 5);
 
-        let last_quarter = fraction_of_lunation_to_phase(0.75);
+        let last_quarter = fraction_of_lunation_to_phase(0.75) as u8;
         assert_eq!(last_quarter, 6);
 
-        let waning_crescent = fraction_of_lunation_to_phase(0.85);
+        let waning_crescent = fraction_of_lunation_to_phase(0.85) as u8;
         assert_eq!(waning_crescent, 7);
 
-        let new_moon_end = fraction_of_lunation_to_phase(1.0);
+        let new_moon_end = fraction_of_lunation_to_phase(1.0) as u8;
         assert_eq!(new_moon_end, 0);
     }
 
     #[test]
     fn fraction_of_lunation_to_phase_name() {
-        let new_moon_start = PHANAME[fraction_of_lunation_to_phase(0.0)];
+        let new_moon_start = fraction_of_lunation_to_phase(0.0).name();
         assert_eq!(new_moon_start, "New Moon");
 
-        let waxing_crescent = PHANAME[fraction_of_lunation_to_phase(0.15)];
+        let waxing_crescent = fraction_of_lunation_to_phase(0.15).name();
         assert_eq!(waxing_crescent, "Waxing Crescent");
 
-        let first_quarter = PHANAME[fraction_of_lunation_to_phase(0.25)];
+        let first_quarter = fraction_of_lunation_to_phase(0.25).name();
         assert_eq!(first_quarter, "First Quarter");
 
-        let waxing_gibbous = PHANAME[fraction_of_lunation_to_phase(0.35)];
+        let waxing_gibbous = fraction_of_lunation_to_phase(0.35).name();
         assert_eq!(waxing_gibbous, "Waxing Gibbous");
 
-        let full_moon = PHANAME[fraction_of_lunation_to_phase(0.5)];
+        let full_moon = fraction_of_lunation_to_phase(0.5).name();
         assert_eq!(full_moon, "Full Moon");
 
-        let waning_gibbous = PHANAME[fraction_of_lunation_to_phase(0.65)];
+        let waning_gibbous = fraction_of_lunation_to_phase(0.65).name();
         assert_eq!(waning_gibbous, "Waning Gibbous");
 
-        let last_quarter = PHANAME[fraction_of_lunation_to_phase(0.75)];
+        let last_quarter = fraction_of_lunation_to_phase(0.75).name();
         assert_eq!(last_quarter, "Last Quarter");
 
-        let waning_crescent = PHANAME[fraction_of_lunation_to_phase(0.85)];
+        let waning_crescent = fraction_of_lunation_to_phase(0.85).name();
         assert_eq!(waning_crescent, "Waning Crescent");
 
-        let new_moon_end = PHANAME[fraction_of_lunation_to_phase(1.0)];
+        let new_moon_end = fraction_of_lunation_to_phase(1.0).name();
         assert_eq!(new_moon_end, "New Moon");
     }
 
     #[test]
     fn fraction_of_lunation_to_phase_icon() {
-        let new_moon_start = MOONICN[fraction_of_lunation_to_phase(0.0)];
+        let new_moon_start = fraction_of_lunation_to_phase(0.0).icon();
         assert_eq!(new_moon_start, "🌑");
 
-        let waxing_crescent = MOONICN[fraction_of_lunation_to_phase(0.15)];
+        let waxing_crescent = fraction_of_lunation_to_phase(0.15).icon();
         assert_eq!(waxing_crescent, "🌒");
 
-        let first_quarter = MOONICN[fraction_of_lunation_to_phase(0.25)];
+        let first_quarter = fraction_of_lunation_to_phase(0.25).icon();
         assert_eq!(first_quarter, "🌓");
 
-        let waxing_gibbous = MOONICN[fraction_of_lunation_to_phase(0.35)];
+        let waxing_gibbous = fraction_of_lunation_to_phase(0.35).icon();
         assert_eq!(waxing_gibbous, "🌔");
 
-        let full_moon = MOONICN[fraction_of_lunation_to_phase(0.5)];
+        let full_moon = fraction_of_lunation_to_phase(0.5).icon();
         assert_eq!(full_moon, "🌕");
 
-        let waning_gibbous = MOONICN[fraction_of_lunation_to_phase(0.65)];
+        let waning_gibbous = fraction_of_lunation_to_phase(0.65).icon();
         assert_eq!(waning_gibbous, "🌖");
 
-        let last_quarter = MOONICN[fraction_of_lunation_to_phase(0.75)];
+        let last_quarter = fraction_of_lunation_to_phase(0.75).icon();
         assert_eq!(last_quarter, "🌗");
 
-        let waning_crescent = MOONICN[fraction_of_lunation_to_phase(0.85)];
+        let waning_crescent = fraction_of_lunation_to_phase(0.85).icon();
         assert_eq!(waning_crescent, "🌘");
 
-        let new_moon_end = MOONICN[fraction_of_lunation_to_phase(1.0)];
+        let new_moon_end = fraction_of_lunation_to_phase(1.0).icon();
         assert_eq!(new_moon_end, "🌑");
     }
 

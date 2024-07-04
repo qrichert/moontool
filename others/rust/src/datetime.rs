@@ -30,18 +30,29 @@ const DAYNAME: [&str; 7] = [
     "Saturday",
 ];
 
-fn monthname(month: u32) -> Result<&'static str, &'static str> {
+#[derive(Debug)]
+pub struct DateTimeError(pub &'static str);
+
+impl fmt::Display for DateTimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for DateTimeError {}
+
+fn monthname(month: u32) -> Result<&'static str, DateTimeError> {
     let month = month as usize;
     if month < 1 || month > MONAME.len() {
-        return Err("Invalid month.");
+        return Err(DateTimeError("invalid month"));
     }
     Ok(MONAME[month - 1])
 }
 
-fn dayname(day: u32) -> Result<&'static str, &'static str> {
+fn dayname(day: u32) -> Result<&'static str, DateTimeError> {
     let day = day as usize;
     if day >= DAYNAME.len() {
-        return Err("Invalid day.");
+        return Err(DateTimeError("invalid day"));
     }
     Ok(DAYNAME[day])
 }
@@ -54,19 +65,19 @@ fn utcdatetime_now() -> UTCDateTime {
     offsetdatetime_to_utcdatetime(&now)
 }
 
-fn utcdatetime_to_timestamp(datetime: &UTCDateTime) -> Result<i64, &'static str> {
+fn utcdatetime_to_timestamp(datetime: &UTCDateTime) -> Result<i64, DateTimeError> {
     let datetime = utcdatetime_to_offsetdatetime(datetime)?;
     Ok(datetime.unix_timestamp())
 }
 
-fn timestamp_to_utcdatetime(timestamp: i64) -> Result<UTCDateTime, &'static str> {
+fn timestamp_to_utcdatetime(timestamp: i64) -> Result<UTCDateTime, DateTimeError> {
     let Ok(datetime) = time::OffsetDateTime::from_unix_timestamp(timestamp) else {
-        return Err("Timestamp is out of range.");
+        return Err(DateTimeError("timestamp is out of range"));
     };
     Ok(offsetdatetime_to_utcdatetime(&datetime))
 }
 
-fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime, &'static str> {
+fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime, DateTimeError> {
     let datetime = if iso_datetime.contains('T') || iso_datetime.contains('t') {
         parse_datetime(iso_datetime)
     } else {
@@ -74,7 +85,7 @@ fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime,
     };
 
     let Ok(datetime) = datetime else {
-        return Err("Invalid datetime string.");
+        return Err(DateTimeError("invalid datetime string"));
     };
 
     let datetime = datetime.to_offset(time::UtcOffset::UTC);
@@ -82,40 +93,41 @@ fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime,
     Ok(UTCDateTime::from(datetime))
 }
 
-fn parse_datetime(datetime: &str) -> Result<time::OffsetDateTime, &'static str> {
+fn parse_datetime(datetime: &str) -> Result<time::OffsetDateTime, DateTimeError> {
     let mut datetime = datetime.to_owned();
     // Implicit UTC if no offset provided.
     if !datetime.ends_with('Z') && !datetime.ends_with('z') && !datetime.contains('+') {
         datetime.push('Z');
     }
     let format = time::format_description::well_known::Rfc3339;
-    time::OffsetDateTime::parse(&datetime, &format).map_or(Err("Error parsing datetime."), Ok)
+    time::OffsetDateTime::parse(&datetime, &format)
+        .map_or(Err(DateTimeError("error parsing datetime")), Ok)
 }
 
-fn parse_date(date: &str) -> Result<time::OffsetDateTime, &'static str> {
+fn parse_date(date: &str) -> Result<time::OffsetDateTime, DateTimeError> {
     let format = time::format_description::parse("[year]-[month]-[day]").unwrap();
     let Ok(date) = time::Date::parse(date, &format) else {
-        return Err("Error parsing date.");
+        return Err(DateTimeError("error parsing date"));
     };
     Ok(time::OffsetDateTime::new_utc(date, time::Time::MIDNIGHT))
 }
 
-fn weekday_for_utcdatetime(datetime: &UTCDateTime) -> Result<u32, &'static str> {
+fn weekday_for_utcdatetime(datetime: &UTCDateTime) -> Result<u32, DateTimeError> {
     let datetime = utcdatetime_to_offsetdatetime(datetime)?;
     Ok(u32::from(datetime.weekday().number_days_from_sunday()))
 }
 
 #[cfg(not(tarpaulin_include))]
-fn weekday_for_localdatetime(datetime: &LocalDateTime) -> Result<u32, &'static str> {
+fn weekday_for_localdatetime(datetime: &LocalDateTime) -> Result<u32, DateTimeError> {
     let datetime = localdatetime_to_offsetdatetime(datetime)?;
     Ok(u32::from(datetime.weekday().number_days_from_sunday()))
 }
 
 #[cfg(not(tarpaulin_include))]
-fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime, &'static str> {
+fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime, DateTimeError> {
     let utc = utcdatetime_to_offsetdatetime(datetime)?;
     let Ok(local_offset) = time::UtcOffset::local_offset_at(utc) else {
-        return Err("Error obtaining local offset.");
+        return Err(DateTimeError("error obtaining local offset"));
     };
 
     let local = utc.to_offset(local_offset);
@@ -134,26 +146,26 @@ fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime,
 #[allow(clippy::cast_possible_truncation)]
 fn utcdatetime_to_offsetdatetime(
     datetime: &UTCDateTime,
-) -> Result<time::OffsetDateTime, &'static str> {
+) -> Result<time::OffsetDateTime, DateTimeError> {
     let Ok(month) = time::Month::try_from(datetime.month as u8) else {
-        return Err("Invalid month.");
+        return Err(DateTimeError("invalid month"));
     };
     let Ok(date) = time::Date::from_calendar_date(datetime.year, month, datetime.day as u8) else {
-        return Err("Invalid date.");
+        return Err(DateTimeError("invalid date"));
     };
     let Ok(time) = time::Time::from_hms(
         datetime.hour as u8,
         datetime.minute as u8,
         datetime.second as u8,
     ) else {
-        return Err("Invalid time.");
+        return Err(DateTimeError("invalid time"));
     };
 
     Ok(time::OffsetDateTime::new_utc(date, time))
 }
 
 #[cfg(not(tarpaulin_include))]
-fn localdatetime_to_utcdatetime(datetime: &LocalDateTime) -> Result<UTCDateTime, &'static str> {
+fn localdatetime_to_utcdatetime(datetime: &LocalDateTime) -> Result<UTCDateTime, DateTimeError> {
     let local = localdatetime_to_offsetdatetime(datetime)?;
     let utc = local.to_offset(time::UtcOffset::UTC);
     Ok(offsetdatetime_to_utcdatetime(&utc))
@@ -170,7 +182,7 @@ fn localdatetime_to_utcdatetime(datetime: &LocalDateTime) -> Result<UTCDateTime,
 #[cfg(not(tarpaulin_include))]
 fn localdatetime_to_offsetdatetime(
     datetime: &LocalDateTime,
-) -> Result<time::OffsetDateTime, &'static str> {
+) -> Result<time::OffsetDateTime, DateTimeError> {
     // Treat local datetime as UTC. This is INVALID for now, but it lets
     // us create an `OffsetDateTime` with the correct date and time
     // components (but offset is WRONG).
@@ -184,7 +196,7 @@ fn localdatetime_to_offsetdatetime(
     ))?;
 
     let Ok(local_offset) = time::UtcOffset::current_local_offset() else {
-        return Err("Error obtaining local offset.");
+        return Err(DateTimeError("error obtaining local offset"));
     };
 
     // Replace offset with local offset, WITHOUT changing the date and
@@ -195,9 +207,9 @@ fn localdatetime_to_offsetdatetime(
 }
 
 #[cfg(not(tarpaulin_include))]
-fn local_offset_as_string() -> Result<String, &'static str> {
+fn local_offset_as_string() -> Result<String, DateTimeError> {
     let Ok(local_offset) = time::UtcOffset::current_local_offset() else {
-        return Err("Error obtaining local offset.");
+        return Err(DateTimeError("error obtaining local offset"));
     };
     Ok(local_offset.to_string())
 }
@@ -256,7 +268,7 @@ impl UTCDateTime {
     /// # Errors
     ///
     /// Errors if month is not a number between 1 and 12.
-    pub fn monthname(&self) -> Result<&'static str, &'static str> {
+    pub fn monthname(&self) -> Result<&'static str, DateTimeError> {
         monthname(self.month)
     }
 
@@ -270,7 +282,7 @@ impl UTCDateTime {
     /// # Errors
     ///
     /// Errors if date or time is invalid.
-    pub fn weekday(&self) -> Result<u32, &'static str> {
+    pub fn weekday(&self) -> Result<u32, DateTimeError> {
         weekday_for_utcdatetime(self)
     }
 
@@ -279,7 +291,7 @@ impl UTCDateTime {
     /// # Errors
     ///
     /// Errors if date or time is invalid.
-    pub fn dayname(&self) -> Result<&'static str, &'static str> {
+    pub fn dayname(&self) -> Result<&'static str, DateTimeError> {
         dayname(self.weekday()?)
     }
 }
@@ -326,7 +338,7 @@ impl UTCDateTime {
     /// # Errors
     ///
     /// Errors if input string in invalid format.
-    pub fn from_iso_string(iso_string: &str) -> Result<Self, &'static str> {
+    pub fn from_iso_string(iso_string: &str) -> Result<Self, DateTimeError> {
         Self::try_from(iso_string)
     }
 
@@ -335,7 +347,7 @@ impl UTCDateTime {
     /// # Errors
     ///
     /// Errors if result date or time is invalid (e.g., `2024-01-42`).
-    pub fn from_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+    pub fn from_timestamp(timestamp: i64) -> Result<Self, DateTimeError> {
         let dt = timestamp_to_utcdatetime(timestamp)?;
         Ok(dt)
     }
@@ -345,7 +357,7 @@ impl UTCDateTime {
     /// # Errors
     ///
     /// Errors if date or time is invalid (e.g., `2024-01-42`).
-    pub fn to_timestamp(&self) -> Result<i64, &'static str> {
+    pub fn to_timestamp(&self) -> Result<i64, DateTimeError> {
         let timestamp = utcdatetime_to_timestamp(self)?;
         Ok(timestamp)
     }
@@ -434,7 +446,7 @@ impl UTCDateTime {
 }
 
 impl FromStr for UTCDateTime {
-    type Err = &'static str;
+    type Err = DateTimeError;
 
     fn from_str(datetime: &str) -> Result<Self, Self::Err> {
         let dt = iso_datetime_string_to_utcdatetime(datetime)?;
@@ -443,7 +455,7 @@ impl FromStr for UTCDateTime {
 }
 
 impl TryFrom<&str> for UTCDateTime {
-    type Error = &'static str;
+    type Error = DateTimeError;
 
     fn try_from(datetime: &str) -> Result<Self, Self::Error> {
         datetime.parse()
@@ -451,7 +463,7 @@ impl TryFrom<&str> for UTCDateTime {
 }
 
 impl TryFrom<&LocalDateTime> for UTCDateTime {
-    type Error = &'static str;
+    type Error = DateTimeError;
 
     #[cfg(not(tarpaulin_include))]
     fn try_from(datetime: &LocalDateTime) -> Result<Self, Self::Error> {
@@ -466,7 +478,7 @@ impl From<time::OffsetDateTime> for UTCDateTime {
 }
 
 impl TryFrom<&UTCDateTime> for time::OffsetDateTime {
-    type Error = &'static str;
+    type Error = DateTimeError;
 
     fn try_from(dt: &UTCDateTime) -> Result<Self, Self::Error> {
         utcdatetime_to_offsetdatetime(dt)
@@ -536,7 +548,7 @@ impl LocalDateTime {
     ///
     /// Errors if month is not a number between 1 and 12.
     #[cfg(not(tarpaulin_include))]
-    pub fn monthname(&self) -> Result<&'static str, &'static str> {
+    pub fn monthname(&self) -> Result<&'static str, DateTimeError> {
         monthname(self.month)
     }
 
@@ -551,7 +563,7 @@ impl LocalDateTime {
     ///
     /// Errors if date or time is invalid.
     #[cfg(not(tarpaulin_include))]
-    pub fn weekday(&self) -> Result<u32, &'static str> {
+    pub fn weekday(&self) -> Result<u32, DateTimeError> {
         weekday_for_localdatetime(self)
     }
 
@@ -561,13 +573,13 @@ impl LocalDateTime {
     ///
     /// Errors if date or time is invalid.
     #[cfg(not(tarpaulin_include))]
-    pub fn dayname(&self) -> Result<&'static str, &'static str> {
+    pub fn dayname(&self) -> Result<&'static str, DateTimeError> {
         dayname(self.weekday()?)
     }
 }
 
 impl TryFrom<&UTCDateTime> for LocalDateTime {
-    type Error = &'static str;
+    type Error = DateTimeError;
 
     #[cfg(not(tarpaulin_include))]
     fn try_from(datetime: &UTCDateTime) -> Result<Self, Self::Error> {
@@ -600,7 +612,16 @@ mod tests {
         };
     }
 
-    // Date/time utils
+    // Date/time error.
+
+    #[test]
+    fn datetimeerror_format() {
+        let error = DateTimeError("an error has occurred");
+
+        assert_eq!(error.to_string(), "an error has occurred");
+    }
+
+    // Date/time utils.
 
     #[test]
     fn month_number_to_name() {

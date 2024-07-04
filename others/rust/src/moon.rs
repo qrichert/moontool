@@ -11,7 +11,7 @@
     clippy::many_single_char_names
 )]
 
-pub use crate::datetime::{LocalDateTime, UTCDateTime};
+pub use crate::datetime::{DateTimeError, LocalDateTime, UTCDateTime};
 use std::{fmt, fmt::Write};
 
 //  Astronomical constants
@@ -144,7 +144,7 @@ pub trait ForDateTime: Sized {
     /// # Errors
     ///
     /// If parsing of datetime string fails.
-    fn for_iso_string(iso_string: &str) -> Result<Self, &'static str> {
+    fn for_iso_string(iso_string: &str) -> Result<Self, DateTimeError> {
         let datetime = iso_string.parse()?;
         #[cfg(not(tarpaulin_include))] // Erroneously marked uncovered.
         Ok(Self::for_datetime(&datetime))
@@ -153,7 +153,7 @@ pub trait ForDateTime: Sized {
     /// # Errors
     ///
     /// If timestamp is out of bounds.
-    fn for_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+    fn for_timestamp(timestamp: i64) -> Result<Self, DateTimeError> {
         let datetime = UTCDateTime::from_timestamp(timestamp)?;
         #[cfg(not(tarpaulin_include))] // Erroneously marked uncovered.
         Ok(Self::for_datetime(&datetime))

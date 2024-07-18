@@ -2,6 +2,7 @@
 
 use crate::moon;
 
+use std::error::Error;
 use std::fmt;
 use std::str::FromStr;
 
@@ -39,7 +40,7 @@ impl fmt::Display for DateTimeError {
     }
 }
 
-impl std::error::Error for DateTimeError {}
+impl Error for DateTimeError {}
 
 fn monthname(month: u32) -> Result<&'static str, DateTimeError> {
     let month = month as usize;

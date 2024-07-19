@@ -4,8 +4,8 @@ import re
 import unittest
 from textwrap import dedent
 
-import moon.moon
-from moon.moon import (
+import moontool.moon
+from moontool.moon import (
     EPL,
     MOONICN,
     PHANAME,
@@ -36,7 +36,7 @@ def load_tests(
     loader: unittest.TestLoader, tests: unittest.TestSuite, ignore: str
 ) -> unittest.TestSuite:
     """Add module doctests."""
-    tests.addTests(doctest.DocTestSuite(moon.moon))
+    tests.addTests(doctest.DocTestSuite(moontool.moon))
     return tests
 
 

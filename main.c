@@ -23,7 +23,7 @@ int is_arg_timestamp(const char* arg);
 time_t timestamp_str_to_timestamp(const char* timestamp);
 time_t datetime_str_to_timestamp(const char* datetime);
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[]) {
     if (argc < 2) {
         for_now();
         return EXIT_SUCCESS;

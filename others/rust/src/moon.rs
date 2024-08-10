@@ -722,8 +722,8 @@ fn yearly_mooncal(gm: &UTCDateTime) -> YearlyMoonCalendar {
 
 #[allow(clippy::comparison_chain)]
 fn new_moons_for_year(year: i32) -> (Vec<NewMoon>, Vec<FullMoon>) {
-    let mut new_moons = vec![];
-    let mut full_moons = vec![];
+    let mut new_moons = Vec::with_capacity(13);
+    let mut full_moons = Vec::with_capacity(13);
 
     // Start on the last day of the year prior. This may catch Moons
     // that belong to the wrong year (they will be ignored), but on the
@@ -784,8 +784,7 @@ fn name_full_moons(full_moons: &mut [FullMoon]) {
             10 => "Hunter's Moon",
             11 => "Beaver Moon",
             12 => "Cold Moon",
-            #[cfg(not(tarpaulin_include))]
-            _ => continue,
+            _ => unreachable!(),
         };
 
         full_moon.name = String::from(name);
@@ -1324,8 +1323,8 @@ fn meanphase(sdate: f64, k: f64) -> f64 {
 ///
 /// # Panics
 ///
-/// Panics if [`truephase()`] called with invalid phase selector. Phase
-/// selector should be one of these values: 0.0, 0.25, 0.5, 0.75.
+/// Panics if [`truephase()`] is called with an invalid phase selector.
+/// Phase selector must be one of these values: 0.0, 0.25, 0.5, 0.75.
 #[rustfmt::skip]
 fn truephase(mut k: f64, phase: f64) -> f64 {
     let mut apcor = false;
@@ -1336,14 +1335,26 @@ fn truephase(mut k: f64, phase: f64) -> f64 {
     let t3 = t2 * t; // Cube for frequent use
 
     // Mean time of phase
-    let mut pt = 2_415_020.759_33 + SYNMONTH * k + 0.000_117_8 * t2 - 0.000_000_155 * t3
+    let mut pt = 2_415_020.759_33
+        + SYNMONTH * k
+        + 0.000_117_8 * t2
+        - 0.000_000_155 * t3
         + 0.00033 * dsin(166.56 + 132.87 * t - 0.009_173 * t2);
     // Sun's mean anomaly
-    let m = 359.2242 + 29.105_356_08 * k - 0.000_033_3 * t2 - 0.000_003_47 * t3;
+    let m = 359.2242
+        + 29.105_356_08 * k
+        - 0.000_033_3 * t2
+        - 0.000_003_47 * t3;
     // Moon's mean anomaly
-    let mprime = 306.0253 + 385.816_918_06 * k + 0.010_730_6 * t2 + 0.000_012_36 * t3;
+    let mprime = 306.0253
+        + 385.816_918_06 * k
+        + 0.010_730_6 * t2
+        + 0.000_012_36 * t3;
     // Moon's argument of latitude
-    let f = 21.2964 + 390.670_506_46 * k - 0.001_652_8 * t2 - 0.000_002_39 * t3;
+    let f = 21.2964
+        + 390.670_506_46 * k
+        - 0.001_652_8 * t2
+        - 0.000_002_39 * t3;
 
     if phase < 0.01 || (phase - 0.5).abs() < 0.01 {
         // Corrections for New and Full Moon
@@ -1379,14 +1390,20 @@ fn truephase(mut k: f64, phase: f64) -> f64 {
             - 0.0003 * dsin(2.0 * m + mprime);
         if phase < 0.5 {
             // First quarter correction
-            pt += 0.0028 - 0.0004 * dcos(m) + 0.0003 * dcos(mprime);
+            pt += 0.0028
+                - 0.0004 * dcos(m)
+                + 0.0003 * dcos(mprime);
         } else {
             // Last quarter correction
-            pt += -0.0028 + 0.0004 * dcos(m) - 0.0003 * dcos(mprime);
+            pt += -0.0028
+                + 0.0004 * dcos(m)
+                - 0.0003 * dcos(mprime);
         }
         apcor = true;
     }
-    assert!(apcor, "TRUEPHASE called with invalid phase selector.");
+    // Values are not user-provided, it can only fail because of a
+    // mistake in development.
+    debug_assert!(apcor, "TRUEPHASE called with invalid phase selector.");
     pt
 }
 

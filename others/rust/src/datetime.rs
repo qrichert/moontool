@@ -2,6 +2,7 @@
 
 use crate::moon;
 
+use std::error::Error;
 use std::fmt;
 use std::str::FromStr;
 
@@ -39,7 +40,7 @@ impl fmt::Display for DateTimeError {
     }
 }
 
-impl std::error::Error for DateTimeError {}
+impl Error for DateTimeError {}
 
 fn monthname(month: u32) -> Result<&'static str, DateTimeError> {
     let month = month as usize;
@@ -57,7 +58,7 @@ fn dayname(day: u32) -> Result<&'static str, DateTimeError> {
     Ok(DAYNAME[day])
 }
 
-// Everything time-rs is confined in here.
+// Everything `time-rs` is confined in here.
 
 #[cfg(not(tarpaulin_include))]
 fn utcdatetime_now() -> UTCDateTime {
@@ -229,7 +230,7 @@ fn local_offset_as_string() -> Result<String, DateTimeError> {
 /// the regular API. Because the regular API explicitly always deals
 /// with UTC datetimes.
 fn offsetdatetime_to_utcdatetime(datetime: &time::OffsetDateTime) -> UTCDateTime {
-    assert_eq!(datetime.offset(), time::UtcOffset::UTC);
+    debug_assert_eq!(datetime.offset(), time::UtcOffset::UTC);
 
     UTCDateTime {
         year: datetime.year(),

@@ -1,11 +1,10 @@
 # Moontool
 
 [![license: 0BSD](https://img.shields.io/badge/license-0BSD-blue)](https://opensource.org/license/0BSD)
-[![PyPI - Version](https://img.shields.io/pypi/v/moontool?logo=python&logoColor=white&color=blue)](https://pypi.org/project/moontool/)
-![crates.io](https://img.shields.io/crates/d/moontool?color=green)
+[![crates.io](https://img.shields.io/crates/d/moontool?logo=rust&logoColor=white&color=orange)](https://crates.io/crates/moontool)
 
 John Walker's moontool.c astronomical calculation routines, extracted
-and ported to Python.
+and ported to Rust.
 
 ## Original
 
@@ -61,13 +60,15 @@ Last quarter:           Sunday    19:07 UTC 25 December 1994
 Next new moon:          Sunday    10:56 UTC  1 January 1995     Lunation: 891
 ```
 
-_(If you're only interested in the CLI, use the [Rust version](../rust).
-It has more features and there are pre-compiled binaries available.)_
-
 ## Installation
 
 ```shell
-pip install moontool
+# CLI, either of:
+cargo install moontool
+cargo install --git https://github.com/qrichert/moontool.git
+
+# Library
+cargo add moontool
 ```
 
 This sets up both the CLI:
@@ -78,10 +79,10 @@ $ moontool --help
 
 And the library:
 
-```python
-from moontool.moon import MoonPhase
+```rust
+use moontool::moon::MoonPhase;
 
-phase = MoonPhase.now()
+let phase = MoonPhase::now();
 ```
 
 <p align="center">

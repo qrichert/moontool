@@ -161,15 +161,15 @@ $ moontool --json --verbose 1994-12-22T13:53:34
 
 ### Ports to Other Languages
 
-- `rust/src/moon.rs` A port to Rust.
-- `python/moon/moon.py` A port to Python.
+- [`others/rust/`](./others/rust) A port to Rust.
+- [`others/python/`](./others/python) A port to Python.
 
 The C and Python versions stick as closely as possible to the original.
 
 The Rust version takes some liberties to provide a nicer API (the
 calculations do no change however). It also exposes the Moon's ecliptic
 longitude, ecliptic latitude, and parallax, and the Sun's ecliptic
-longitude. All four of them are calculated in the original, but the
+longitude. All four of which are calculated in the original, but the
 values are never used.
 
 The Rust version also includes additional features and an augmented CLI.
@@ -179,7 +179,7 @@ The Rust version also includes additional features and an augmented CLI.
 This repo [also includes](./others):
 
 - `moonsim.sh` A shell script that simulates a lunation.
-- `web.py` A simple Python script that serves the CLI over the web.
+- `webmoon.py` A simple Python script that serves the CLI over the web.
 
 <p align="center">
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀<br />

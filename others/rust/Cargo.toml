@@ -17,12 +17,20 @@ strip = true
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)', 'cfg(PARANOID)'] }
 
 [dependencies]
+# Manipulate dates and time.
+# - Get current date and time.
+# - Convert from-and-to timestamps.
+# - Parse ISO datetime strings.
+# - Get day-of-week for date.
+# - Convert between local and UTC.
 time = { version = "0.3", features = ["std", "parsing", "local-offset"] }
+# (CLI) Render Moon and plot lunation charts.
 textcanvas = { version = "3.5.0", optional = true }
 
 [features]
-canvas = ["textcanvas"]
+# (CLI) Activate `textcanvas` dependency for rich output.
+rich-output = ["textcanvas"]
 
 [[bin]]
 name = "moontool"
-required-features = ["canvas"]
+required-features = ["rich-output"]

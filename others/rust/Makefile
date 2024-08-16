@@ -11,13 +11,13 @@ clean: ## Clean project files
 r: run
 .PHONY: run
 run: ## Build and run program
-	@cargo run --quiet --features="canvas"
+	@cargo run --quiet --features="rich-output"
 
 .PHONY: b
 b: build
 .PHONY: build
 build: ## Make optimized release build
-	@cargo build --release --features="canvas"
+	@cargo build --release --features="rich-output"
 
 .PHONY: check
 check: ## Most stringent checks (includes checks still in development)
@@ -32,7 +32,7 @@ check: ## Most stringent checks (includes checks still in development)
 t: test
 .PHONY: test
 test: ## Run unit tests
-	@cargo test --features="canvas"
+	@cargo test --features="rich-output"
 
 .PHONY: doc
 doc: ## Build documentation
@@ -42,12 +42,12 @@ doc: ## Build documentation
 c: coverage
 .PHONY: coverage
 coverage: ## Unit tests coverage report
-	@cargo tarpaulin --engine Llvm --timeout 120 --out Html --output-dir target/ --features="canvas"
+	@cargo tarpaulin --engine Llvm --timeout 120 --out Html --output-dir target/ --features="rich-output"
 	@open target/tarpaulin-report.html || xdg-open target/tarpaulin-report.html || :
 
 .PHONY: coverage-pct
 coverage-pct: ## Ensure code coverage of 100%
-	@coverage=$$(cargo tarpaulin --engine Llvm --out Stdout --features="canvas" 2>&1); \
+	@coverage=$$(cargo tarpaulin --engine Llvm --out Stdout --features="rich-output" 2>&1); \
 		percent_covered=$$(echo "$$coverage" | grep -o '^[0-9]\+\.[0-9]\+% coverage' | cut -d'%' -f1); \
 		echo $$percent_covered; \
 		[ $$(echo "$$percent_covered == 100" | bc -l) -eq 0 ] && exit 1; \

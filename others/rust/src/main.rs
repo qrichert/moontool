@@ -404,7 +404,7 @@ fn blit_line(
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn draw_apollo_11_commemorative_dot(canvas: &mut TextCanvas, offset_x: usize, offset_y: usize) {
-    canvas.set_color(Color::new().red());
+    canvas.set_color(Color::new().bright_red());
 
     let x = (moon_icon::APOLLO_11.0 + offset_x) as i32;
     let y = (moon_icon::APOLLO_11.1 + offset_y) as i32;
@@ -766,7 +766,7 @@ mod tests {
 
         let render = render_moon(mphase.fraction_of_lunation, &mphase.utc_datetime);
 
-        assert!(render.contains("\x1b[0;31m⠛\x1b[0m"));
+        assert!(render.contains("\x1b[0;91m⠛\x1b[0m"));
     }
 
     #[test]

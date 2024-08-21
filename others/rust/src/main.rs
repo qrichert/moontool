@@ -24,9 +24,11 @@ struct Config {
     json: bool,
 }
 
-impl Config {
-    fn new(args: impl Iterator<Item = String>) -> Result<Self, String> {
-        let mut config = Self {
+// Prefer explicit default config.
+#[allow(clippy::derivable_impls)]
+impl Default for Config {
+    fn default() -> Self {
+        Self {
             datetime: None,
             help: false,
             version: false,
@@ -34,7 +36,13 @@ impl Config {
             moon: false,
             graph: false,
             json: false,
-        };
+        }
+    }
+}
+
+impl Config {
+    fn new(args: impl Iterator<Item = String>) -> Result<Self, String> {
+        let mut config = Self::default();
 
         for arg in args.skip(1) {
             if arg == "-h" || arg == "--help" {

@@ -11,8 +11,9 @@
     clippy::many_single_char_names
 )]
 
-pub use crate::datetime::{DateTimeError, LocalDateTime, UTCDateTime};
 use std::{fmt, fmt::Write};
+
+pub use crate::datetime::{DateTimeError, LocalDateTime, UTCDateTime};
 
 //  Astronomical constants
 

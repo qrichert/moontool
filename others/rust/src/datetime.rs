@@ -1,10 +1,10 @@
 //! Date and time handling functions.
 
-use crate::moon;
-
 use std::error::Error;
 use std::fmt;
 use std::str::FromStr;
+
+use crate::moon;
 
 const MONAME: [&str; 12] = [
     "January",

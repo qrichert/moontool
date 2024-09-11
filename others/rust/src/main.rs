@@ -1,12 +1,15 @@
 //! Command Line Interface for moon.rs.
 
+use std::env;
+use std::fmt::Write;
+use std::process;
+
+use textcanvas::{charts::Plot, Color, TextCanvas};
+
 use moontool::moon::{
     ForDateTime, LocalDateTime, MoonCalendar, MoonPhase, SunCalendar, ToJSON, UTCDateTime,
     YearlyMoonCalendar,
 };
-use std::fmt::Write;
-use std::{env, process};
-use textcanvas::{charts::Plot, Color, TextCanvas};
 
 mod moon_icon;
 

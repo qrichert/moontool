@@ -10,6 +10,10 @@ readme = "../../README.md"
 keywords = ["moon"]
 categories = ["aerospace", "mathematics", "science", "command-line-utilities"]
 
+[[bin]]
+name = "moontool"
+required-features = ["rich-output"]
+
 [profile.release]
 strip = true
 
@@ -29,8 +33,4 @@ textcanvas = { version = "3.5.0", optional = true }
 
 [features]
 # (CLI) Activate `textcanvas` dependency for rich output.
-rich-output = ["textcanvas"]
-
-[[bin]]
-name = "moontool"
-required-features = ["rich-output"]
+rich-output = ["dep:textcanvas"]

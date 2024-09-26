@@ -25,9 +25,9 @@ nohup fastapi run --port 2222 webmoon.py > /dev/null 2>&1 < /dev/null &
 Now you can query the server like this:
 
 ```
-http://0.0.0.0:2222/?d=2024-05-28
-http://0.0.0.0:2222/?d=2024-05-28T19:16:00
-http://0.0.0.0:2222/?d=2024-05-28T19:16:00Z&moon=1
+http://0.0.0.0:2222/?date=2024-05-28
+http://0.0.0.0:2222/?date=2024-05-28T19:16:00
+http://0.0.0.0:2222/?date=2024-05-28T19:16:00Z&moon=1
 http://0.0.0.0:2222/?graph=1&verbose=1
 http://0.0.0.0:2222/docs
 ```

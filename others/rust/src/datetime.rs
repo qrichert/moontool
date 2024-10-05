@@ -330,10 +330,10 @@ impl UTCDateTime {
     ///
     /// ```rust
     /// # use moontool::moon::UTCDateTime;
-    /// let _ = UTCDateTime::from_iso_string("2024-06-14").unwrap();
-    /// let _ = UTCDateTime::from_iso_string("2024-06-14T21:21:00").unwrap();
-    /// let _ = UTCDateTime::from_iso_string("2024-06-14T21:21:00Z").unwrap();
-    /// let _ = UTCDateTime::from_iso_string("2024-06-14T19:21:00+02:00").unwrap();
+    /// _ = UTCDateTime::from_iso_string("2024-06-14").unwrap();
+    /// _ = UTCDateTime::from_iso_string("2024-06-14T21:21:00").unwrap();
+    /// _ = UTCDateTime::from_iso_string("2024-06-14T21:21:00Z").unwrap();
+    /// _ = UTCDateTime::from_iso_string("2024-06-14T19:21:00+02:00").unwrap();
     /// ```
     ///
     /// # Errors

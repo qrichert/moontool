@@ -11,7 +11,7 @@
     clippy::many_single_char_names
 )]
 
-use std::{fmt, fmt::Write};
+use std::fmt::{self, Write};
 
 pub use crate::datetime::{DateTimeError, LocalDateTime, UTCDateTime};
 
@@ -183,6 +183,7 @@ pub trait ForYear: ForDateTime {
 
 /// Serialize values to JSON.
 pub trait ToJSON {
+    #[must_use]
     fn to_json(&self) -> String;
 }
 
@@ -192,13 +193,6 @@ pub trait ToJSON {
 /// Implementing it ensures nothing is left aside.
 #[allow(dead_code)]
 trait MarkerBase: ForDateTime + fmt::Display + ToJSON {}
-
-/// Helper to `write!()` to a string with auto-`unwrap()`.
-macro_rules! write_to {
-    ($target:ident, $string:literal $(, $value:expr)*) => {
-        write!($target, $string $(, $value)*).unwrap_or(());
-    };
-}
 
 // Custom API.
 
@@ -392,63 +386,63 @@ impl fmt::Display for MoonPhase {
 
 impl ToJSON for MoonPhase {
     fn to_json(&self) -> String {
-        let mut json = String::new();
-        write_to!(json, "{{");
-        write_to!(json, r#""julian_date":{},"#, self.julian_date);
-        write_to!(
+        let mut json = String::with_capacity(1000);
+        _ = write!(json, "{{");
+        _ = write!(json, r#""julian_date":{},"#, self.julian_date);
+        _ = write!(
             json,
             r#""timestamp":{},"#,
             self.timestamp
                 .map_or_else(|| String::from("null"), |v| v.to_string())
         );
-        write_to!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
-        write_to!(json, r#""age":{},"#, self.age);
-        write_to!(
+        _ = write!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
+        _ = write!(json, r#""age":{},"#, self.age);
+        _ = write!(
             json,
             r#""fraction_of_lunation":{},"#,
             self.fraction_of_lunation
         );
-        write_to!(json, r#""phase":{{"#);
-        write_to!(json, r#""index":{},"#, self.phase as u8);
-        write_to!(json, r#""name":"{}","#, self.phase.name());
-        write_to!(json, r#""icon":"{}""#, self.phase.icon());
-        write_to!(json, "}},");
-        write_to!(
+        _ = write!(json, r#""phase":{{"#);
+        _ = write!(json, r#""index":{},"#, self.phase as u8);
+        _ = write!(json, r#""name":"{}","#, self.phase.name());
+        _ = write!(json, r#""icon":"{}""#, self.phase.icon());
+        _ = write!(json, "}},");
+        _ = write!(
             json,
             r#""fraction_illuminated":{},"#,
             self.fraction_illuminated
         );
-        write_to!(json, r#""ecliptic_longitude":{},"#, self.ecliptic_longitude);
-        write_to!(json, r#""ecliptic_latitude":{},"#, self.ecliptic_latitude);
-        write_to!(json, r#""parallax":{},"#, self.parallax);
-        write_to!(
+        _ = write!(json, r#""ecliptic_longitude":{},"#, self.ecliptic_longitude);
+        _ = write!(json, r#""ecliptic_latitude":{},"#, self.ecliptic_latitude);
+        _ = write!(json, r#""parallax":{},"#, self.parallax);
+        _ = write!(
             json,
             r#""distance_to_earth_km":{},"#,
             self.distance_to_earth_km
         );
-        write_to!(
+        _ = write!(
             json,
             r#""distance_to_earth_earth_radii":{},"#,
             self.distance_to_earth_earth_radii
         );
-        write_to!(json, r#""subtends":{},"#, self.subtends);
-        write_to!(
+        _ = write!(json, r#""subtends":{},"#, self.subtends);
+        _ = write!(
             json,
             r#""sun_ecliptic_longitude":{},"#,
             self.sun_ecliptic_longitude
         );
-        write_to!(
+        _ = write!(
             json,
             r#""sun_distance_to_earth_km":{},"#,
             self.sun_distance_to_earth_km
         );
-        write_to!(
+        _ = write!(
             json,
             r#""sun_distance_to_earth_astronomical_units":{},"#,
             self.sun_distance_to_earth_astronomical_units
         );
-        write_to!(json, r#""sun_subtends":{}"#, self.sun_subtends);
-        write_to!(json, "}}");
+        _ = write!(json, r#""sun_subtends":{}"#, self.sun_subtends);
+        _ = write!(json, "}}");
         json
     }
 }
@@ -540,28 +534,28 @@ impl fmt::Display for MoonCalendar {
 
 impl ToJSON for MoonCalendar {
     fn to_json(&self) -> String {
-        let mut json = String::new();
-        write_to!(json, "{{");
-        write_to!(json, r#""julian_date":{},"#, self.julian_date);
-        write_to!(
+        let mut json = String::with_capacity(1000);
+        _ = write!(json, "{{");
+        _ = write!(json, r#""julian_date":{},"#, self.julian_date);
+        _ = write!(
             json,
             r#""timestamp":{},"#,
             self.timestamp
                 .map_or_else(|| String::from("null"), |v| v.to_string())
         );
-        write_to!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
-        write_to!(json, r#""lunation":{},"#, self.lunation);
-        write_to!(json, r#""last_new_moon":{},"#, self.last_new_moon);
-        write_to!(json, r#""last_new_moon_utc":"{}","#, self.last_new_moon_utc);
-        write_to!(json, r#""first_quarter":{},"#, self.first_quarter);
-        write_to!(json, r#""first_quarter_utc":"{}","#, self.first_quarter_utc);
-        write_to!(json, r#""full_moon":{},"#, self.full_moon);
-        write_to!(json, r#""full_moon_utc":"{}","#, self.full_moon_utc);
-        write_to!(json, r#""last_quarter":{},"#, self.last_quarter);
-        write_to!(json, r#""last_quarter_utc":"{}","#, self.last_quarter_utc);
-        write_to!(json, r#""next_new_moon":{},"#, self.next_new_moon);
-        write_to!(json, r#""next_new_moon_utc":"{}""#, self.next_new_moon_utc);
-        write_to!(json, "}}");
+        _ = write!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
+        _ = write!(json, r#""lunation":{},"#, self.lunation);
+        _ = write!(json, r#""last_new_moon":{},"#, self.last_new_moon);
+        _ = write!(json, r#""last_new_moon_utc":"{}","#, self.last_new_moon_utc);
+        _ = write!(json, r#""first_quarter":{},"#, self.first_quarter);
+        _ = write!(json, r#""first_quarter_utc":"{}","#, self.first_quarter_utc);
+        _ = write!(json, r#""full_moon":{},"#, self.full_moon);
+        _ = write!(json, r#""full_moon_utc":"{}","#, self.full_moon_utc);
+        _ = write!(json, r#""last_quarter":{},"#, self.last_quarter);
+        _ = write!(json, r#""last_quarter_utc":"{}","#, self.last_quarter_utc);
+        _ = write!(json, r#""next_new_moon":{},"#, self.next_new_moon);
+        _ = write!(json, r#""next_new_moon_utc":"{}""#, self.next_new_moon_utc);
+        _ = write!(json, "}}");
         json
     }
 }
@@ -576,7 +570,7 @@ pub struct NewMoon {
 pub struct FullMoon {
     pub date: f64,
     pub date_utc: UTCDateTime,
-    pub name: String,
+    pub name: &'static str,
 }
 
 /// List of all New Moons and Full Moons, of a given year.
@@ -602,7 +596,7 @@ pub struct FullMoon {
 ///     FullMoon {
 ///         date: 2460571.6088363146,
 ///         date_utc: UTCDateTime::from_ymdhms(2024, 9, 18, 2, 36, 43),
-///         name: String::from("Harvest Moon"),
+///         name: "Harvest Moon",
 ///     },
 /// );
 /// ```
@@ -669,16 +663,16 @@ impl fmt::Display for YearlyMoonCalendar {
 
 impl ToJSON for YearlyMoonCalendar {
     fn to_json(&self) -> String {
-        let mut json = String::new();
-        write_to!(json, "{{");
-        write_to!(json, r#""julian_date":{},"#, self.julian_date);
-        write_to!(
+        let mut json = String::with_capacity(3000);
+        _ = write!(json, "{{");
+        _ = write!(json, r#""julian_date":{},"#, self.julian_date);
+        _ = write!(
             json,
             r#""timestamp":{},"#,
             self.timestamp
                 .map_or_else(|| String::from("null"), |v| v.to_string())
         );
-        write_to!(
+        _ = write!(
             json,
             r#""new_moons":[{}],"#,
             self.new_moons
@@ -690,7 +684,7 @@ impl ToJSON for YearlyMoonCalendar {
                 .collect::<Vec<String>>()
                 .join(",")
         );
-        write_to!(
+        _ = write!(
             json,
             r#""full_moons":[{}]"#,
             self.full_moons
@@ -702,7 +696,7 @@ impl ToJSON for YearlyMoonCalendar {
                 .collect::<Vec<String>>()
                 .join(",")
         );
-        write_to!(json, "}}");
+        _ = write!(json, "}}");
         json
     }
 }
@@ -741,7 +735,7 @@ fn new_moons_for_year(year: i32) -> (Vec<NewMoon>, Vec<FullMoon>) {
             full_moons.push(FullMoon {
                 date: mcal.full_moon,
                 date_utc: mcal.full_moon_utc,
-                name: String::new(),
+                name: "",
             });
 
         // But if "Full Moon" is next year, we're done. "next New Moon"
@@ -788,20 +782,20 @@ fn name_full_moons(full_moons: &mut [FullMoon]) {
             _ => unreachable!(),
         };
 
-        full_moon.name = String::from(name);
+        full_moon.name = name;
         last_month = full_moon.date_utc.month;
     }
 
     let i = find_index_of_harvest_moon(full_moons);
 
     if let Some(harvest_moon) = full_moons.get_mut(i) {
-        harvest_moon.name = String::from("Harvest Moon");
+        harvest_moon.name = "Harvest Moon";
     }
     // Traditionally, the Hunter's Moon follows the Harvest Moon.
     // If the Harvest Moon takes place in October, the Hunter's Moon
     // will be the first Full Moon of November (e.g., 2001).
     if let Some(hunters_moon) = full_moons.get_mut(i + 1) {
-        hunters_moon.name = String::from("Hunter's Moon");
+        hunters_moon.name = "Hunter's Moon";
     }
 }
 
@@ -951,33 +945,33 @@ impl fmt::Display for SunCalendar {
 
 impl ToJSON for SunCalendar {
     fn to_json(&self) -> String {
-        let mut json = String::new();
-        write_to!(json, "{{");
-        write_to!(json, r#""julian_date":{},"#, self.julian_date);
-        write_to!(
+        let mut json = String::with_capacity(1000);
+        _ = write!(json, "{{");
+        _ = write!(json, r#""julian_date":{},"#, self.julian_date);
+        _ = write!(
             json,
             r#""timestamp":{},"#,
             self.timestamp
                 .map_or_else(|| String::from("null"), |v| v.to_string())
         );
-        write_to!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
-        write_to!(json, r#""march_equinox":{},"#, self.march_equinox);
-        write_to!(json, r#""march_equinox_utc":"{}","#, self.march_equinox_utc);
-        write_to!(json, r#""june_solstice":{},"#, self.june_solstice);
-        write_to!(json, r#""june_solstice_utc":"{}","#, self.june_solstice_utc);
-        write_to!(json, r#""september_equinox":{},"#, self.september_equinox);
-        write_to!(
+        _ = write!(json, r#""utc_datetime":"{}","#, self.utc_datetime);
+        _ = write!(json, r#""march_equinox":{},"#, self.march_equinox);
+        _ = write!(json, r#""march_equinox_utc":"{}","#, self.march_equinox_utc);
+        _ = write!(json, r#""june_solstice":{},"#, self.june_solstice);
+        _ = write!(json, r#""june_solstice_utc":"{}","#, self.june_solstice_utc);
+        _ = write!(json, r#""september_equinox":{},"#, self.september_equinox);
+        _ = write!(
             json,
             r#""september_equinox_utc":"{}","#,
             self.september_equinox_utc
         );
-        write_to!(json, r#""december_solstice":{},"#, self.december_solstice);
-        write_to!(
+        _ = write!(json, r#""december_solstice":{},"#, self.december_solstice);
+        _ = write!(
             json,
             r#""december_solstice_utc":"{}""#,
             self.december_solstice_utc
         );
-        write_to!(json, "}}");
+        _ = write!(json, "}}");
         json
     }
 }
@@ -1685,8 +1679,8 @@ mod tests {
                 sun_subtends: 0.536_699_858_701_845_1,
             }
         );
-        assert_eq!(mphase.phase.name(), String::from("Waxing Gibbous"));
-        assert_eq!(mphase.phase.icon(), String::from("🌔"));
+        assert_eq!(mphase.phase.name(), "Waxing Gibbous");
+        assert_eq!(mphase.phase.icon(), "🌔");
     }
 
     #[test]
@@ -1940,62 +1934,62 @@ Next new moon:\t\tFriday     2:10 UTC 31 March 1995\tLunation: 894\
                     FullMoon {
                         date: 2_449_734.352_721_255_3,
                         date_utc: UTCDateTime::from_ymdhms(1995, 1, 16, 20, 27, 55),
-                        name: String::from("Wolf Moon")
+                        name: "Wolf Moon"
                     },
                     FullMoon {
                         date: 2_449_764.011_966_952_6,
                         date_utc: UTCDateTime::from_ymdhms(1995, 2, 15, 12, 17, 14),
-                        name: String::from("Snow Moon")
+                        name: "Snow Moon"
                     },
                     FullMoon {
                         date: 2_449_793.560_731_158_6,
                         date_utc: UTCDateTime::from_ymdhms(1995, 3, 17, 1, 27, 27),
-                        name: String::from("Worm Moon")
+                        name: "Worm Moon"
                     },
                     FullMoon {
                         date: 2_449_823.006_760_471,
                         date_utc: UTCDateTime::from_ymdhms(1995, 4, 15, 12, 9, 44),
-                        name: String::from("Pink Moon")
+                        name: "Pink Moon"
                     },
                     FullMoon {
                         date: 2_449_852.367_306_99,
                         date_utc: UTCDateTime::from_ymdhms(1995, 5, 14, 20, 48, 55),
-                        name: String::from("Flower Moon")
+                        name: "Flower Moon"
                     },
                     FullMoon {
                         date: 2_449_881.669_201_127,
                         date_utc: UTCDateTime::from_ymdhms(1995, 6, 13, 4, 3, 39),
-                        name: String::from("Strawberry Moon")
+                        name: "Strawberry Moon"
                     },
                     FullMoon {
                         date: 2_449_910.950_985_403_7,
                         date_utc: UTCDateTime::from_ymdhms(1995, 7, 12, 10, 49, 25),
-                        name: String::from("Buck Moon")
+                        name: "Buck Moon"
                     },
                     FullMoon {
                         date: 2_449_940.260_853_294_7,
                         date_utc: UTCDateTime::from_ymdhms(1995, 8, 10, 18, 15, 38),
-                        name: String::from("Sturgeon Moon")
+                        name: "Sturgeon Moon"
                     },
                     FullMoon {
                         date: 2_449_969.650_321_038_4,
                         date_utc: UTCDateTime::from_ymdhms(1995, 9, 9, 3, 36, 28),
-                        name: String::from("Harvest Moon")
+                        name: "Harvest Moon"
                     },
                     FullMoon {
                         date: 2_449_999.161_113_315_3,
                         date_utc: UTCDateTime::from_ymdhms(1995, 10, 8, 15, 52, 0),
-                        name: String::from("Hunter's Moon")
+                        name: "Hunter's Moon"
                     },
                     FullMoon {
                         date: 2_450_028.806_614_596_4,
                         date_utc: UTCDateTime::from_ymdhms(1995, 11, 7, 7, 21, 32),
-                        name: String::from("Beaver Moon")
+                        name: "Beaver Moon"
                     },
                     FullMoon {
                         date: 2_450_058.561_306_783,
                         date_utc: UTCDateTime::from_ymdhms(1995, 12, 7, 1, 28, 17),
-                        name: String::from("Cold Moon")
+                        name: "Cold Moon"
                     }
                 ],
             }
@@ -2587,7 +2581,7 @@ December solstice:\tFriday     8:18 UTC 22 December 1995\
     #[test]
     #[should_panic(expected = "TRUEPHASE called with invalid phase selector.")]
     fn truephase_invalid_phase_selector() {
-        let _ = truephase(1537.0, 1.0);
+        _ = truephase(1537.0, 1.0);
     }
 
     #[test]

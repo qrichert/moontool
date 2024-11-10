@@ -106,7 +106,15 @@ fn parse_datetime(datetime: &str) -> Result<time::OffsetDateTime, DateTimeError>
 }
 
 fn parse_date(date: &str) -> Result<time::OffsetDateTime, DateTimeError> {
-    let format = time::format_description::parse("[year]-[month]-[day]").unwrap();
+    static DATE_FORMAT: std::sync::OnceLock<
+        Vec<time::format_description::BorrowedFormatItem<'static>>,
+    > = std::sync::OnceLock::new();
+
+    let format = DATE_FORMAT.get_or_init(|| {
+        time::format_description::parse_borrowed::<1>("[year]-[month]-[day]")
+            .expect("format is valid")
+    });
+
     let Ok(date) = time::Date::parse(date, &format) else {
         return Err(DateTimeError("error parsing date"));
     };

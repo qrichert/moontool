@@ -768,7 +768,7 @@ mod tests {
 
         let render = render_moon(mphase.fraction_of_lunation, &mphase.utc_datetime);
 
-        assert!(render.trim_matches(&['\n', '⠀']).is_empty());
+        assert!(render.trim_matches(['\n', '⠀']).is_empty());
     }
 
     #[test]

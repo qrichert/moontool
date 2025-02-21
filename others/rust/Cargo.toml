@@ -1,7 +1,7 @@
 [package]
 name = "moontool"
 version = "1.3.0"
-edition = "2021"
+edition = "2024"
 authors = ["Quentin Richert <noreply@richert.co>"]
 description = "John Walker's moontool.c astronomical calculation routines, extracted and ported to Rust."
 license = "0BSD"
@@ -27,9 +27,11 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)', 'cfg(
 # - Parse ISO datetime strings.
 # - Get day-of-week for date.
 # - Convert between local and UTC.
-time = { version = "0.3.36", features = ["std", "parsing", "local-offset"] }
+# TODO: There are changes around soundness that break the tests in
+#  `0.3.37`. We won't fix this as a move to `jiff` is planned anyway.
+time = { version = "=0.3.36", features = ["std", "parsing", "local-offset"] }
 # (CLI) Render Moon and plot lunation charts.
-textcanvas = { version = "3.5.0", optional = true }
+textcanvas = { version = "3.6.1", optional = true }
 
 [features]
 # (CLI) Activate `textcanvas` dependency for rich output.

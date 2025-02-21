@@ -63,11 +63,7 @@ fn dcos(x: f64) -> f64 {
 
 macro_rules! EPL {
     ($x:expr) => {
-        if $x == 1 {
-            ""
-        } else {
-            "s"
-        }
+        if $x == 1 { "" } else { "s" }
     };
 }
 

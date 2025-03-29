@@ -53,12 +53,12 @@ impl Config {
                 break;
             }
 
-            if arg == "-v" || arg == "--version" {
+            if arg == "-V" || arg == "--version" {
                 config.version = true;
                 break;
             }
 
-            if arg == "-vv" || arg == "--verbose" {
+            if arg == "-v" || arg == "--verbose" {
                 config.verbose = true;
                 continue;
             }
@@ -130,8 +130,8 @@ usage: {bin} [-h] [] [DATETIME] [±TIMESTAMP]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -v, --version         show the version and exit
-  -vv, --verbose        verbose output
+  -V, --version         show the version and exit
+  -v, --verbose         verbose output
   --moon                show render of Moon
   --graph               graph of lunation
   --json                output as json
@@ -144,7 +144,7 @@ optional arguments:
 }
 
 fn version_message() -> String {
-    format!("{} {}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"))
+    format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -636,8 +636,8 @@ mod tests {
 
         dbg!(&message);
         assert!(message.contains("-h, --help"));
-        assert!(message.contains("-v, --version"));
-        assert!(message.contains("-vv, --verbose"));
+        assert!(message.contains("-V, --version"));
+        assert!(message.contains("-v, --verbose"));
         assert!(message.contains("--moon"));
         assert!(message.contains("--graph"));
         assert!(message.contains("--json"));
@@ -655,7 +655,7 @@ mod tests {
 
     #[test]
     fn version_short() {
-        let args = vec![String::new(), String::from("-v")].into_iter();
+        let args = vec![String::new(), String::from("-V")].into_iter();
         let config = Config::new(args).unwrap();
 
         assert!(config.version);
@@ -666,7 +666,7 @@ mod tests {
         let message = version_message();
 
         dbg!(&message);
-        assert!(message.contains(env!("CARGO_BIN_NAME")));
+        assert!(message.contains(env!("CARGO_PKG_NAME")));
         assert!(message.contains(env!("CARGO_PKG_VERSION")));
     }
 
@@ -680,7 +680,7 @@ mod tests {
 
     #[test]
     fn verbose_short() {
-        let args = vec![String::new(), String::from("-vv")].into_iter();
+        let args = vec![String::new(), String::from("-v")].into_iter();
         let config = Config::new(args).unwrap();
 
         assert!(config.verbose);

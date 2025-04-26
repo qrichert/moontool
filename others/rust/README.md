@@ -1,6 +1,7 @@
 # Moontool
 
 [![license: 0BSD](https://img.shields.io/badge/license-0BSD-blue)](https://opensource.org/license/0BSD)
+![GitHub Tag](https://img.shields.io/github/v/tag/qrichert/moontool?sort=semver&filter=*.*.*&label=release)
 [![crates.io](https://img.shields.io/crates/d/moontool?logo=rust&logoColor=white&color=orange)](https://crates.io/crates/moontool)
 
 John Walker's moontool.c astronomical calculation routines, extracted

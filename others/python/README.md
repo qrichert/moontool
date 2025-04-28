@@ -2,6 +2,7 @@
 
 [![license: 0BSD](https://img.shields.io/badge/license-0BSD-blue)](https://opensource.org/license/0BSD)
 [![PyPI - Version](https://img.shields.io/pypi/v/moontool?logo=python&logoColor=white&color=blue)](https://pypi.org/project/moontool/)
+[![tokei (loc)](https://tokei.rs/b1/github/qrichert/moontool?label=loc&type=Python&style=flat)](https://github.com/XAMPPRocky/tokei)
 ![crates.io](https://img.shields.io/crates/d/moontool?color=green)
 
 John Walker's moontool.c astronomical calculation routines, extracted

@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'others/rust/**'
+      - '.github/workflows/ci-rust.yml'
   pull_request:
     paths:
       - 'others/rust/**'

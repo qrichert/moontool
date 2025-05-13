@@ -44,7 +44,7 @@ jobs:
         run: |
           mkdir -p dist/
           bin=$(make ci-bin-name)
-          platform=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]' | sed 's/-latest//')
+          platform=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
           cp "target/release/$bin" "dist/${bin}-${{ github.ref_name }}-${platform}"
         shell: bash
 
@@ -52,7 +52,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.repository.name }}-${{ runner.os }}
-          path: dist/
+          # `actions/upload-artifact@v4` does not use `working-directory`.
+          # https://github.com/actions/upload-artifact/issues/232#issuecomment-964235360
+          path: ./others/rust/dist/
+          if-no-files-found: error
 
   release:
     name: Create GitHub Release
@@ -86,7 +89,6 @@ jobs:
         with:
           path: artifacts/
 
-      # You _must_ give Actions read and write permissions in the repo settings.
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v1
         with:

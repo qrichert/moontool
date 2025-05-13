@@ -33,8 +33,10 @@ http://0.0.0.0:2222/docs
 ```
 """
 
+import json
 import subprocess
 from typing import Annotated
+
 from fastapi import FastAPI, Query  # pyright: ignore
 from fastapi.responses import HTMLResponse  # pyright: ignore
 
@@ -45,6 +47,11 @@ HTML_TEMPLATE: str = """
     <meta charset="utf-8" />
     <title>Moontool%{DATE}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Ctext%20x='0'%20y='14'%3E%{MOON}%3C/text%3E%3C/svg%3E"
+    />
     <style>
       body {
         margin: 0;
@@ -101,6 +108,21 @@ def ansi_color_codes_to_html(html: str) -> str:
     return html
 
 
+def moon_icon(date: str | None) -> str:
+    command: list[str] = ["moontool", "--json"]
+    if date:
+        command.append(date)
+
+    res: subprocess.CompletedProcess = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    moon: dict = json.loads(res.stdout)
+    return moon["phase"]["phase"]["icon"]
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(
     date: Annotated[str | None, Query(description="Date in ISO format.")] = None,
@@ -111,4 +133,5 @@ async def index(
     output: str = moontool(date, verbose, moon, graph)
     html: str = HTML_TEMPLATE.replace("%{DATE}", f" - {date}" if date else "")
     html = html.replace("%{OUTPUT}", output)
+    html = html.replace("%{MOON}", moon_icon(date))
     return HTMLResponse(content=html, status_code=200)

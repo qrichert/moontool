@@ -1,6 +1,7 @@
 /.idea/
 /.vscode/
 /.venv/
+__pycache__/
 /target/
 .DS_Store
 *.o

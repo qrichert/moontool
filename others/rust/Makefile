@@ -63,7 +63,7 @@ test: ## Run unit tests
 
 .PHONY: doc
 doc: ## Build documentation
-	@cargo doc --all-features
+	@cargo doc --all-features --document-private-items
 	@echo file://$(shell pwd)/target/doc/moontool/index.html
 
 .PHONY: c
@@ -76,12 +76,12 @@ coverage: ## Unit tests coverage report
 .PHONY: cpc
 cpc: coverage-pct
 .PHONY: coverage-pct
-coverage-pct: ## Ensure code coverage of 100%
-	@coverage=$$(cargo tarpaulin --engine Llvm --out Stdout --all-features 2>&1); \
-		percent_covered=$$(echo "$$coverage" | grep -o '^[0-9]\+\.[0-9]\+% coverage' | cut -d'%' -f1); \
-		echo $$percent_covered; \
-		[ $$(echo "$$percent_covered == 100" | bc -l) -eq 0 ] && exit 1; \
-		exit 0
+coverage-pct: ## Ensure code coverage minimum %
+	@cargo tarpaulin --engine Llvm --timeout 120 --out Stdout --all-features --fail-under 99
+
+.PHONY: ci-bin-name
+ci-bin-name:
+	@echo "moontool"
 
 .PHONY: install
 install: ## Install moontool

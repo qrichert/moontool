@@ -291,7 +291,6 @@ pub struct MoonPhase {
 impl MarkerBase for MoonPhase {}
 
 impl ForDateTime for MoonPhase {
-    #[must_use]
     fn for_datetime(datetime: &UTCDateTime) -> Self {
         moonphase(datetime)
     }
@@ -493,7 +492,6 @@ impl MarkerBase for MoonCalendar {}
 
 #[allow(clippy::missing_errors_doc)]
 impl ForDateTime for MoonCalendar {
-    #[must_use]
     fn for_datetime(datetime: &UTCDateTime) -> Self {
         mooncal(datetime)
     }

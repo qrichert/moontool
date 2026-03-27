@@ -1,10 +1,15 @@
 import datetime as dt
 import doctest
 import re
+import subprocess
+import sys
 import unittest
+from pathlib import Path
 from textwrap import dedent
+from unittest.mock import patch
 
 import moontool.moon
+from moontool import __main__
 from moontool.moon import (
     EPL,
     MOONICN,
@@ -30,6 +35,9 @@ from moontool.moon import (
     truephase,
     ucttoj,
 )
+
+
+PYTHON_PROJECT_DIR = Path(__file__).resolve().parents[1]
 
 
 def load_tests(
@@ -218,6 +226,71 @@ class TestMoon(unittest.TestCase):
     def test_fraction_of_lunation_to_phase_name(self) -> None:
         new_moon_start = PHANAME[fraction_of_lunation_to_phase(0)]
         self.assertEqual(new_moon_start, "New Moon")
+
+
+class TestCli(unittest.TestCase):
+    def test_try_from_timestamp_supports_negative_timestamp(self) -> None:
+        self.assertEqual(
+            __main__.try_from_timestamp("-1"),
+            dt.datetime(1969, 12, 31, 23, 59, 59, tzinfo=dt.UTC),
+        )
+
+    def test_try_from_datetime_supports_timezone_aware_datetime(self) -> None:
+        self.assertEqual(
+            __main__.try_from_datetime("1994-12-22T14:53:34+01:00"),
+            dt.datetime(1994, 12, 22, 13, 53, 34, tzinfo=dt.UTC),
+        )
+
+    def test_help_flag_returns_zero(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-m", "moontool", "--help"],
+            capture_output=True,
+            text=True,
+            cwd=PYTHON_PROJECT_DIR,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("usage: moontool", result.stdout)
+        self.assertEqual(result.stderr, "")
+
+    def test_invalid_input_returns_error(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-m", "moontool", "not-a-date"],
+            capture_output=True,
+            text=True,
+            cwd=PYTHON_PROJECT_DIR,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Error reading date and time from input.", result.stderr)
+
+    def test_main_without_args_defaults_to_now(self) -> None:
+        with patch.object(__main__, "for_now") as for_now:
+            self.assertEqual(__main__.main([]), 0)
+            for_now.assert_called_once_with()
+
+    def test_main_uses_timestamp_parser_first(self) -> None:
+        parsed = dt.datetime(1970, 1, 1, 0, 0, 1, tzinfo=dt.UTC)
+        with (
+            patch.object(__main__, "try_from_timestamp", return_value=parsed) as from_timestamp,
+            patch.object(__main__, "for_custom_datetime") as for_custom_datetime,
+        ):
+            self.assertEqual(__main__.main(["1"]), 0)
+            from_timestamp.assert_called_once_with("1")
+            for_custom_datetime.assert_called_once_with(parsed)
+
+    def test_main_falls_back_to_datetime_parser(self) -> None:
+        parsed = dt.datetime(2024, 1, 2, 3, 4, 5, tzinfo=dt.UTC)
+        with (
+            patch.object(__main__, "try_from_timestamp", side_effect=ValueError),
+            patch.object(__main__, "try_from_datetime", return_value=parsed) as from_datetime,
+            patch.object(__main__, "for_custom_datetime") as for_custom_datetime,
+        ):
+            self.assertEqual(__main__.main(["2024-01-02T03:04:05+00:00"]), 0)
+            from_datetime.assert_called_once_with("2024-01-02T03:04:05+00:00")
+            for_custom_datetime.assert_called_once_with(parsed)
 
         waxing_crescent = PHANAME[fraction_of_lunation_to_phase(0.15)]
         self.assertEqual(waxing_crescent, "Waxing Crescent")

@@ -160,7 +160,7 @@ void test_moonphase_display(void) {
     moonphase(&mphase, &timestamp);
 
     char buf[1000];
-    moonphase_to_strbuf(&mphase, buf);
+    moonphase_to_strbuf(&mphase, buf, sizeof(buf));
 
     redact_local_time(buf);
 
@@ -275,7 +275,7 @@ void test_mooncalendar_display(void) {
     mooncal(&mcal, &timestamp);
 
     char buf[500];
-    mooncal_to_strbuf(&mcal, buf);
+    mooncal_to_strbuf(&mcal, buf, sizeof(buf));
 
     assert(
         strcmp(
@@ -394,7 +394,7 @@ void test_fmt_phase_time_regular(void) {
     };
     char buf[80];
 
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
 
     assert(strcmp(buf, "Sunday    11:16 UTC 12 March 1995") == 0);
 }
@@ -413,23 +413,23 @@ void test_fmt_phase_time_month_padding(void) {
     char buf[80];
 
     gm.tm_mon = 4;  // May (shortest)
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Sunday    11:16 UTC 12 May   1995") == 0);
 
     gm.tm_mon = 8;  // September (longest)
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Sunday    11:16 UTC 12 September 1995") == 0);
 
     gm.tm_mon = 6;  // July (4 chars = 1 char padding)
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Sunday    11:16 UTC 12 July  1995") == 0);
 
     gm.tm_mon = 2;  // March (5 chars = exact)
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Sunday    11:16 UTC 12 March 1995") == 0);
 
     gm.tm_mon = 7;  // August (6 chars = no padding)
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Sunday    11:16 UTC 12 August 1995") == 0);
 }
 
@@ -447,23 +447,23 @@ void test_fmt_phase_time_at_boundaries(void) {
     char buf[80];
 
     gm.tm_wday = 0;  // Sunday
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Sunday    11:16 UTC 12 March 1995") == 0);
 
     gm.tm_wday = 1;  // Monday
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Monday    11:16 UTC 12 March 1995") == 0);
 
     gm.tm_wday = 6;  // Saturday
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Saturday  11:16 UTC 12 March 1995") == 0);
 
     gm.tm_mon = 0;  // January
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Saturday  11:16 UTC 12 January 1995") == 0);
 
     gm.tm_mon = 11;  // December
-    fmt_phase_time(&gm, buf);
+    fmt_phase_time(&gm, buf, sizeof(buf));
     assert(strcmp(buf, "Saturday  11:16 UTC 12 December 1995") == 0);
 }
 

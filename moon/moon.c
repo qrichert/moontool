@@ -117,9 +117,9 @@ static char *moonicn[] = {
 
 /*  Forward functions  */
 
-static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf);
-static void mooncal_to_strbuf(const MoonCalendar *mcal, char *buf);
-static void fmt_phase_time(const struct tm *gm, char *buf);
+static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf, size_t bufsize);
+static void mooncal_to_strbuf(const MoonCalendar *mcal, char *buf, size_t bufsize);
+static void fmt_phase_time(const struct tm *gm, char *buf, size_t bufsize);
 static double jtime(struct tm *t);
 static double ucttoj(long year, int mon, int mday, int hour, int min, int sec);
 static void jtouct(double utime, struct tm *gm);
@@ -220,11 +220,11 @@ static int init_moonphase(MoonPhase *mphase)
 void print_moonphase(const MoonPhase *mphase)
 {
     char buf[1000];
-    moonphase_to_strbuf(mphase, buf);
+    moonphase_to_strbuf(mphase, buf, sizeof(buf));
     printf("%s\n", buf);
 }
 
-static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf)
+static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf, size_t bufsize)
 {
     MoonPhase p;
     if (mphase == NULL) {
@@ -245,15 +245,17 @@ static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf)
 
     const struct tm *gm = &mphase->utc_datetime;
 
-    offset += sprintf(buf + offset, "Phase\n=====\n\n");
-    offset += sprintf(
+    offset += snprintf(buf + offset, bufsize - offset, "Phase\n=====\n\n");
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Julian date:\t\t%.5f   (0h variant: %.5f)\n",
         mphase->julian_date,
         mphase->julian_date + 0.5
     );
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Universal time:\t\t%-9s %2d:%02d:%02d %2d %-5s %d\n",
         dayname[gm->tm_wday],
         gm->tm_hour,
@@ -264,8 +266,9 @@ static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf)
         gm->tm_year + 1900
     );
     gm = localtime(&mphase->timestamp);
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Local time:\t\t%-9s %2d:%02d:%02d %2d %-5s %d\n\n",
         dayname[gm->tm_wday],
         gm->tm_hour,
@@ -276,46 +279,53 @@ static void moonphase_to_strbuf(const MoonPhase *mphase, char *buf)
         gm->tm_year + 1900
     );
 
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Age of moon:\t\t%d day%s, %d hour%s, %d minute%s.\n",
         EPL(aom_d),
         EPL(aom_h),
         EPL(aom_m)
     );
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Lunation:\t\t%.2f%%   (%s %s)\n",
         mphase->fraction_of_lunation * 100,
         mphase->phase_icon,
         mphase->phase_name
     );
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Moon phase:\t\t%.2f%%   (0%% = New, 100%% = Full)\n\n",
         mphase->fraction_illuminated * 100
     );
 
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Moon's distance:\t%ld kilometres, %.1f Earth radii.\n",
         (long) mphase->distance_to_earth_km,
         mphase->distance_to_earth_earth_radii
     );
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Moon subtends:\t\t%.4f degrees.\n\n",
         mphase->subtends
     );
 
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Sun's distance:\t\t%ld kilometres, %.3f astronomical units.\n",
         (long) mphase->sun_distance_to_earth_km,
         mphase->sun_distance_to_earth_astronomical_units
     );
-    offset += sprintf(
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Sun subtends:\t\t%.4f degrees.",
         mphase->sun_subtends
     );
@@ -332,7 +342,7 @@ void print_moonphase_debug(const MoonPhase* mphase)
     }
 
     char utc_datetime[80];
-    fmt_phase_time(&mphase->utc_datetime, utc_datetime);
+    fmt_phase_time(&mphase->utc_datetime, utc_datetime, sizeof(utc_datetime));
 
     printf("MoonPhase {\n");
     printf("    julian_date: %f,\n", mphase->julian_date);
@@ -412,11 +422,11 @@ static int init_mooncal(MoonCalendar *mcal)
 
 void print_mooncal(const MoonCalendar *mcal) {
     char buf[500];
-    mooncal_to_strbuf(mcal, buf);
+    mooncal_to_strbuf(mcal, buf, sizeof(buf));
     printf("%s\n", buf);
 }
 
-static void mooncal_to_strbuf(const MoonCalendar *mcal, char *buf)
+static void mooncal_to_strbuf(const MoonCalendar *mcal, char *buf, size_t bufsize)
 {
     MoonCalendar c;
     if (mcal == NULL) {
@@ -429,23 +439,25 @@ static void mooncal_to_strbuf(const MoonCalendar *mcal, char *buf)
     char tbuf[80];
     unsigned int offset = 0;
 
-    offset += sprintf(buf + offset, "Moon Calendar\n=============\n\n");
-    fmt_phase_time(&mcal->last_new_moon_utc, tbuf);
-    offset += sprintf(
+    offset += snprintf(buf + offset, bufsize - offset, "Moon Calendar\n=============\n\n");
+    fmt_phase_time(&mcal->last_new_moon_utc, tbuf, sizeof(tbuf));
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Last new moon:\t\t%s\tLunation: %ld\n",
         tbuf,
         mcal->lunation
     );
-    fmt_phase_time(&mcal->first_quarter_utc, tbuf);
-    offset += sprintf(buf + offset, "First quarter:\t\t%s\n", tbuf);
-    fmt_phase_time(&mcal->full_moon_utc, tbuf);
-    offset += sprintf(buf + offset, "Full moon:\t\t%s\n", tbuf);
-    fmt_phase_time(&mcal->last_quarter_utc, tbuf);
-    offset += sprintf(buf + offset, "Last quarter:\t\t%s\n", tbuf);
-    fmt_phase_time(&mcal->next_new_moon_utc, tbuf);
-    offset += sprintf(
+    fmt_phase_time(&mcal->first_quarter_utc, tbuf, sizeof(tbuf));
+    offset += snprintf(buf + offset, bufsize - offset, "First quarter:\t\t%s\n", tbuf);
+    fmt_phase_time(&mcal->full_moon_utc, tbuf, sizeof(tbuf));
+    offset += snprintf(buf + offset, bufsize - offset, "Full moon:\t\t%s\n", tbuf);
+    fmt_phase_time(&mcal->last_quarter_utc, tbuf, sizeof(tbuf));
+    offset += snprintf(buf + offset, bufsize - offset, "Last quarter:\t\t%s\n", tbuf);
+    fmt_phase_time(&mcal->next_new_moon_utc, tbuf, sizeof(tbuf));
+    offset += snprintf(
         buf + offset,
+        bufsize - offset,
         "Next new moon:\t\t%s\tLunation: %ld",
         tbuf,
         mcal->lunation + 1
@@ -463,22 +475,22 @@ void print_mooncal_debug(const MoonCalendar* mcal)
     }
 
     char utc_datetime[80];
-    fmt_phase_time(&mcal->utc_datetime, utc_datetime);
+    fmt_phase_time(&mcal->utc_datetime, utc_datetime, sizeof(utc_datetime));
 
     char last_new_moon_utc[80];
-    fmt_phase_time(&mcal->last_new_moon_utc, last_new_moon_utc);
+    fmt_phase_time(&mcal->last_new_moon_utc, last_new_moon_utc, sizeof(last_new_moon_utc));
 
     char first_quarter_utc[80];
-    fmt_phase_time(&mcal->first_quarter_utc, first_quarter_utc);
+    fmt_phase_time(&mcal->first_quarter_utc, first_quarter_utc, sizeof(first_quarter_utc));
 
     char full_moon_utc[80];
-    fmt_phase_time(&mcal->full_moon_utc, full_moon_utc);
+    fmt_phase_time(&mcal->full_moon_utc, full_moon_utc, sizeof(full_moon_utc));
 
     char last_quarter_utc[80];
-    fmt_phase_time(&mcal->last_quarter_utc, last_quarter_utc);
+    fmt_phase_time(&mcal->last_quarter_utc, last_quarter_utc, sizeof(last_quarter_utc));
 
     char next_new_moon_utc[80];
-    fmt_phase_time(&mcal->next_new_moon_utc, next_new_moon_utc);
+    fmt_phase_time(&mcal->next_new_moon_utc, next_new_moon_utc, sizeof(next_new_moon_utc));
 
     printf("MoonCalendar {\n");
     printf("    julian_date: %f,\n", mcal->julian_date);
@@ -504,9 +516,9 @@ void print_mooncal_debug(const MoonCalendar* mcal)
                         provided  buffer  in  UTC  format  for  screen
                         display  */
 
-static void fmt_phase_time(const struct tm *gm, char *buf)
+static void fmt_phase_time(const struct tm *gm, char *buf, size_t bufsize)
 {
-    sprintf(buf, "%-9s %2d:%02d UTC %2d %-5s %d",
+    snprintf(buf, bufsize, "%-9s %2d:%02d UTC %2d %-5s %d",
     dayname [gm->tm_wday], gm->tm_hour, gm->tm_min,
     gm->tm_mday, moname [gm->tm_mon], gm->tm_year + 1900);
 }

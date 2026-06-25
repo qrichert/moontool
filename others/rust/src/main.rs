@@ -126,19 +126,24 @@ fn main() {
 fn help_message() -> String {
     format!(
         "\
-usage: {bin} [-h] [] [DATETIME] [±TIMESTAMP]
+Usage: {bin} [<options>] [<args>] [<date>]
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -V, --version         show the version and exit
-  -v, --verbose         verbose output
-  --moon                show render of Moon
-  --graph               graph of lunation
-  --json                output as json
-  []                    without arguments, defaults to now
-  [DATETIME]            local datetime (e.g., 1994-12-22T14:53:34+01:00)
-  [±TIMESTAMP]          Unix timestamp (e.g., 788104414)
-  [JULIAN DATE]         Julian date (e.g., 2449709.07887)",
+Date:
+  []                  Unspecified, defaults to now
+  [DATE]              Local date (e.g., 1994-12-22)
+  [DATETIME]          Local datetime (e.g., 1994-12-22T14:53:34+01:00)
+  [±TIMESTAMP]        Unix timestamp (e.g., 788104414)
+  [JULIAN DATE]       Julian date (e.g., 2449709.07887)
+
+Args:
+  --moon              Render Moon as it appears
+  --graph             Graph lunation
+  --json              Output as JSON
+
+Options:
+  -h, --help          Show help message and exit
+  -V, --version       Show the version and exit
+  -v, --verbose       Verbose output",
         bin = env!("CARGO_BIN_NAME")
     )
 }

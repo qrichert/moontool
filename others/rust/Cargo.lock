@@ -97,9 +97,9 @@ dependencies = [
 
 [[package]]
 name = "textcanvas"
-version = "3.6.1"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a567f097ed0d05721dbf932956b5b1272383e032eb89b131e9b7611a9230cd5"
+checksum = "3722ca4db637a7ca1f954282bcb68e248f92824d59942bd65893011a69fbd9df"
 
 [[package]]
 name = "time"

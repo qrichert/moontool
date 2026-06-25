@@ -1,0 +1,10 @@
+name: moontool
+
+services:
+  moontool:
+    build:
+      context: ..
+      dockerfile: webmoon/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "2222:2222"

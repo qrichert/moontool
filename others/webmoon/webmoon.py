@@ -12,14 +12,13 @@ Then start the web server:
 
 ```shell
 # Requires Python >= 3.10
-pip install "fastapi[standard]"
-fastapi run --port 2222 webmoon.py
+uv run fastapi run --port 2222 webmoon.py
 ```
 
 (or `fastapi dev` instead of `run` for development mode.)
 
 ```shell
-nohup fastapi run --port 2222 webmoon.py > /dev/null 2>&1 < /dev/null &
+nohup uv run fastapi run --port 2222 webmoon.py > /dev/null 2>&1 < /dev/null &
 ```
 
 Now you can query the server like this:

@@ -1,0 +1,8 @@
+*
+
+!rust
+rust/target
+
+!webmoon
+webmoon/.venv
+webmoon/__pycache__

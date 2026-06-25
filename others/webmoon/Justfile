@@ -1,0 +1,22 @@
+@_default:
+    just --list --list-prefix '  '
+
+# Build and run docker containers
+up:
+    docker compose up --build --detach --remove-orphans
+
+# Tear down docker containers
+down:
+    docker compose down --remove-orphans
+
+# Tear down docker containers and remove data
+destroy:
+    docker compose down --remove-orphans --volumes
+
+# Shell into container
+exec:
+    docker compose exec moontool bash
+
+# Watch logs for service
+log:
+    docker compose logs --follow moontool

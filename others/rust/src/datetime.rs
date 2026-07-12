@@ -4,6 +4,10 @@ use std::error::Error;
 use std::fmt;
 use std::str::FromStr;
 
+use jiff::Timestamp;
+use jiff::civil::{Date, DateTime, Time};
+use jiff::tz::TimeZone;
+
 use crate::moon;
 
 const MONAME: [&str; 12] = [
@@ -58,24 +62,26 @@ fn dayname(day: u32) -> Result<&'static str, DateTimeError> {
     Ok(DAYNAME[day])
 }
 
-// Everything `time-rs` is confined in here.
+// Everything `jiff` is confined in here.
 
 #[cfg(not(tarpaulin_include))]
 fn utcdatetime_now() -> UTCDateTime {
-    let now = time::OffsetDateTime::now_utc();
-    offsetdatetime_to_utcdatetime(&now)
+    timestamp_to_utcdatetime(&Timestamp::now())
 }
 
 fn utcdatetime_to_timestamp(datetime: &UTCDateTime) -> Result<i64, DateTimeError> {
-    let datetime = utcdatetime_to_offsetdatetime(datetime)?;
-    Ok(datetime.unix_timestamp())
+    let datetime = utcdatetime_to_datetime(datetime)?;
+    let Ok(timestamp) = TimeZone::UTC.to_timestamp(datetime) else {
+        return Err(DateTimeError("datetime is out of range"));
+    };
+    Ok(timestamp.as_second())
 }
 
-fn timestamp_to_utcdatetime(timestamp: i64) -> Result<UTCDateTime, DateTimeError> {
-    let Ok(datetime) = time::OffsetDateTime::from_unix_timestamp(timestamp) else {
+fn unix_timestamp_to_utcdatetime(timestamp: i64) -> Result<UTCDateTime, DateTimeError> {
+    let Ok(timestamp) = Timestamp::from_second(timestamp) else {
         return Err(DateTimeError("timestamp is out of range"));
     };
-    Ok(offsetdatetime_to_utcdatetime(&datetime))
+    Ok(timestamp_to_utcdatetime(&timestamp))
 }
 
 fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime, DateTimeError> {
@@ -89,165 +95,149 @@ fn iso_datetime_string_to_utcdatetime(iso_datetime: &str) -> Result<UTCDateTime,
         return Err(DateTimeError("invalid datetime string"));
     };
 
-    let datetime = datetime.to_offset(time::UtcOffset::UTC);
-
-    Ok(UTCDateTime::from(datetime))
+    Ok(timestamp_to_utcdatetime(&datetime))
 }
 
-fn parse_datetime(datetime: &str) -> Result<time::OffsetDateTime, DateTimeError> {
-    let mut datetime = datetime.to_owned();
-    // Implicit UTC if no offset provided.
-    if !datetime.ends_with('Z') && !datetime.ends_with('z') && !datetime.contains('+') {
-        datetime.push('Z');
+fn parse_datetime(datetime: &str) -> Result<Timestamp, DateTimeError> {
+    if let Ok(timestamp) = datetime.parse() {
+        return Ok(timestamp);
     }
-    let format = time::format_description::well_known::Rfc3339;
-    time::OffsetDateTime::parse(&datetime, &format)
-        .map_or(Err(DateTimeError("error parsing datetime")), Ok)
+
+    // Implicit UTC if no offset was provided.
+    format!("{datetime}Z")
+        .parse()
+        .map_err(|_| DateTimeError("error parsing datetime"))
 }
 
-fn parse_date(date: &str) -> Result<time::OffsetDateTime, DateTimeError> {
-    static DATE_FORMAT: std::sync::OnceLock<
-        Vec<time::format_description::BorrowedFormatItem<'static>>,
-    > = std::sync::OnceLock::new();
-
-    let format = DATE_FORMAT.get_or_init(|| {
-        time::format_description::parse_borrowed::<1>("[year]-[month]-[day]")
-            .expect("format is valid")
-    });
-
-    let Ok(date) = time::Date::parse(date, &format) else {
+fn parse_date(date: &str) -> Result<Timestamp, DateTimeError> {
+    let Ok(date) = date.parse::<Date>() else {
         return Err(DateTimeError("error parsing date"));
     };
-    Ok(time::OffsetDateTime::new_utc(date, time::Time::MIDNIGHT))
+    TimeZone::UTC
+        .to_timestamp(date.at(0, 0, 0, 0))
+        .map_err(|_| DateTimeError("error parsing date"))
 }
 
 fn weekday_for_utcdatetime(datetime: &UTCDateTime) -> Result<u32, DateTimeError> {
-    let datetime = utcdatetime_to_offsetdatetime(datetime)?;
-    Ok(u32::from(datetime.weekday().number_days_from_sunday()))
+    let datetime = utcdatetime_to_datetime(datetime)?;
+    Ok(u32::from(
+        datetime.weekday().to_sunday_zero_offset().unsigned_abs(),
+    ))
 }
 
 #[cfg(not(tarpaulin_include))]
 fn weekday_for_localdatetime(datetime: &LocalDateTime) -> Result<u32, DateTimeError> {
-    let datetime = localdatetime_to_offsetdatetime(datetime)?;
-    Ok(u32::from(datetime.weekday().number_days_from_sunday()))
+    let datetime = localdatetime_to_datetime(datetime)?;
+    Ok(u32::from(
+        datetime.weekday().to_sunday_zero_offset().unsigned_abs(),
+    ))
 }
 
 #[cfg(not(tarpaulin_include))]
 fn utcdatetime_to_localdatetime(datetime: &UTCDateTime) -> Result<LocalDateTime, DateTimeError> {
-    let utc = utcdatetime_to_offsetdatetime(datetime)?;
-    let Ok(local_offset) = time::UtcOffset::local_offset_at(utc) else {
-        return Err(DateTimeError("error obtaining local offset"));
+    let utc = utcdatetime_to_datetime(datetime)?;
+    let Ok(timestamp) = TimeZone::UTC.to_timestamp(utc) else {
+        return Err(DateTimeError("datetime is out of range"));
     };
-
-    let local = utc.to_offset(local_offset);
+    let local = local_timezone()?.to_datetime(timestamp);
 
     Ok(LocalDateTime {
-        year: local.year(),
-        month: u32::from(local.month() as u8),
-        day: u32::from(local.day()),
-        hour: u32::from(local.hour()),
-        minute: u32::from(local.minute()),
-        second: u32::from(local.second()),
+        year: i32::from(local.year()),
+        month: u32::from(local.month().unsigned_abs()),
+        day: u32::from(local.day().unsigned_abs()),
+        hour: u32::from(local.hour().unsigned_abs()),
+        minute: u32::from(local.minute().unsigned_abs()),
+        second: u32::from(local.second().unsigned_abs()),
     })
 }
 
-// If it gets truncated, values are wrong anyway.
-#[allow(clippy::cast_possible_truncation)]
-fn utcdatetime_to_offsetdatetime(
-    datetime: &UTCDateTime,
-) -> Result<time::OffsetDateTime, DateTimeError> {
-    let Ok(month) = time::Month::try_from(datetime.month as u8) else {
-        return Err(DateTimeError("invalid month"));
-    };
-    let Ok(date) = time::Date::from_calendar_date(datetime.year, month, datetime.day as u8) else {
+fn utcdatetime_to_datetime(datetime: &UTCDateTime) -> Result<DateTime, DateTimeError> {
+    let Ok(year) = i16::try_from(datetime.year) else {
         return Err(DateTimeError("invalid date"));
     };
-    let Ok(time) = time::Time::from_hms(
-        datetime.hour as u8,
-        datetime.minute as u8,
-        datetime.second as u8,
+    let Ok(month) = i8::try_from(datetime.month) else {
+        return Err(DateTimeError("invalid month"));
+    };
+    let Ok(day) = i8::try_from(datetime.day) else {
+        return Err(DateTimeError("invalid date"));
+    };
+    let Ok(date) = Date::new(year, month, day) else {
+        return Err(DateTimeError("invalid date"));
+    };
+
+    let (Ok(hour), Ok(minute), Ok(second)) = (
+        i8::try_from(datetime.hour),
+        i8::try_from(datetime.minute),
+        i8::try_from(datetime.second),
     ) else {
         return Err(DateTimeError("invalid time"));
     };
+    let Ok(time) = Time::new(hour, minute, second, 0) else {
+        return Err(DateTimeError("invalid time"));
+    };
 
-    Ok(time::OffsetDateTime::new_utc(date, time))
+    Ok(DateTime::from_parts(date, time))
 }
 
 #[cfg(not(tarpaulin_include))]
 fn localdatetime_to_utcdatetime(datetime: &LocalDateTime) -> Result<UTCDateTime, DateTimeError> {
-    let local = localdatetime_to_offsetdatetime(datetime)?;
-    let utc = local.to_offset(time::UtcOffset::UTC);
-    Ok(offsetdatetime_to_utcdatetime(&utc))
+    let local = localdatetime_to_datetime(datetime)?;
+    let Ok(timestamp) = local_timezone()?.to_timestamp(local) else {
+        return Err(DateTimeError("datetime is out of range"));
+    };
+    Ok(timestamp_to_utcdatetime(&timestamp))
 }
 
-/// # Warning
-///
-/// The returned [`OffsetDateTime`](time::OffsetDateTime) will be in
-/// _local_ offset.
-///
-/// Keep in mind that passing it like this to
-/// `offsetdatetime_to_utcdatetime()` will panic. It must be converted
-/// to UTC offset first.
 #[cfg(not(tarpaulin_include))]
-fn localdatetime_to_offsetdatetime(
-    datetime: &LocalDateTime,
-) -> Result<time::OffsetDateTime, DateTimeError> {
-    // Treat local datetime as UTC. This is INVALID for now, but it lets
-    // us create an `OffsetDateTime` with the correct date and time
-    // components (but offset is WRONG).
-    let local = utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymdhms(
+fn localdatetime_to_datetime(datetime: &LocalDateTime) -> Result<DateTime, DateTimeError> {
+    utcdatetime_to_datetime(&UTCDateTime::from_ymdhms(
         datetime.year,
         datetime.month,
         datetime.day,
         datetime.hour,
         datetime.minute,
         datetime.second,
-    ))?;
-
-    let Ok(local_offset) = time::UtcOffset::current_local_offset() else {
-        return Err(DateTimeError("error obtaining local offset"));
-    };
-
-    // Replace offset with local offset, WITHOUT changing the date and
-    // time components. This is now CORRECT.
-    let local = local.replace_offset(local_offset);
-
-    Ok(local)
+    ))
 }
 
 #[cfg(not(tarpaulin_include))]
-fn local_offset_as_string() -> Result<String, DateTimeError> {
-    let Ok(local_offset) = time::UtcOffset::current_local_offset() else {
-        return Err(DateTimeError("error obtaining local offset"));
+fn local_offset_as_string(datetime: &LocalDateTime) -> Result<String, DateTimeError> {
+    let timezone = local_timezone()?;
+    let datetime = localdatetime_to_datetime(datetime)?;
+    let timestamp = timezone
+        .to_timestamp(datetime)
+        .map_err(|_| DateTimeError("datetime is out of range"))?;
+    let total_seconds = timezone.to_offset(timestamp).seconds();
+    let sign = if total_seconds.is_negative() {
+        '-'
+    } else {
+        '+'
     };
-    Ok(local_offset.to_string())
+    let total_seconds = total_seconds.unsigned_abs();
+    let hours = total_seconds / 3_600;
+    let minutes = total_seconds % 3_600 / 60;
+    let seconds = total_seconds % 60;
+    Ok(format!("{sign}{hours:02}:{minutes:02}:{seconds:02}"))
 }
 
-/// # Panics
-///
-/// Panics if provided [`OffsetDateTime`](time::OffsetDateTime) is not
-/// in UTC offset. Otherwise, resulting [`UTCDateTime`]s would have
-/// wrong values.
-///
-/// Dealing with non-UTC datetimes is the exception by a large margin.
-/// Panicking instead of performing the conversion keeps the API clean
-/// and reduces confusion.
-///
-/// The idea is you _can_ manipulate non-UTC datetimes, but you have to
-/// explicitly convert them to UTC first if you want to interact with
-/// the regular API. Because the regular API explicitly always deals
-/// with UTC datetimes.
-fn offsetdatetime_to_utcdatetime(datetime: &time::OffsetDateTime) -> UTCDateTime {
-    debug_assert_eq!(datetime.offset(), time::UtcOffset::UTC);
+#[cfg(not(tarpaulin_include))]
+fn local_timezone() -> Result<TimeZone, DateTimeError> {
+    TimeZone::try_system().map_err(|_| DateTimeError("error obtaining local timezone"))
+}
 
+fn datetime_to_utcdatetime(datetime: &DateTime) -> UTCDateTime {
     UTCDateTime {
-        year: datetime.year(),
-        month: u32::from(datetime.month() as u8),
-        day: u32::from(datetime.day()),
-        hour: u32::from(datetime.hour()),
-        minute: u32::from(datetime.minute()),
-        second: u32::from(datetime.second()),
+        year: i32::from(datetime.year()),
+        month: u32::from(datetime.month().unsigned_abs()),
+        day: u32::from(datetime.day().unsigned_abs()),
+        hour: u32::from(datetime.hour().unsigned_abs()),
+        minute: u32::from(datetime.minute().unsigned_abs()),
+        second: u32::from(datetime.second().unsigned_abs()),
     }
+}
+
+fn timestamp_to_utcdatetime(timestamp: &Timestamp) -> UTCDateTime {
+    datetime_to_utcdatetime(&TimeZone::UTC.to_datetime(*timestamp))
 }
 
 /// Internal date and time representation.
@@ -357,7 +347,7 @@ impl UTCDateTime {
     ///
     /// Errors if result date or time is invalid (e.g., `2024-01-42`).
     pub fn from_timestamp(timestamp: i64) -> Result<Self, DateTimeError> {
-        let dt = timestamp_to_utcdatetime(timestamp)?;
+        let dt = unix_timestamp_to_utcdatetime(timestamp)?;
         Ok(dt)
     }
 
@@ -480,17 +470,20 @@ impl TryFrom<&LocalDateTime> for UTCDateTime {
     }
 }
 
-impl From<time::OffsetDateTime> for UTCDateTime {
-    fn from(dt: time::OffsetDateTime) -> Self {
-        offsetdatetime_to_utcdatetime(&dt)
+impl From<Timestamp> for UTCDateTime {
+    fn from(timestamp: Timestamp) -> Self {
+        timestamp_to_utcdatetime(&timestamp)
     }
 }
 
-impl TryFrom<&UTCDateTime> for time::OffsetDateTime {
+impl TryFrom<&UTCDateTime> for Timestamp {
     type Error = DateTimeError;
 
     fn try_from(dt: &UTCDateTime) -> Result<Self, Self::Error> {
-        utcdatetime_to_offsetdatetime(dt)
+        let datetime = utcdatetime_to_datetime(dt)?;
+        TimeZone::UTC
+            .to_timestamp(datetime)
+            .map_err(|_| DateTimeError("datetime is out of range"))
     }
 }
 
@@ -511,10 +504,9 @@ impl fmt::Display for UTCDateTime {
 ///
 /// # Warning
 ///
-/// [`LocalDateTime`] is NOT offset aware. It is always assumed to be
-/// "current local offset". Thus, if the local offset changes (because
-/// of DST or because you've sent the values to someone in a different
-/// timezone), the values will be WRONG.
+/// [`LocalDateTime`] is NOT timezone aware. It is always interpreted in
+/// the system's local timezone. Thus, if you've sent the values to
+/// someone in a different timezone, the values will be WRONG.
 ///
 /// Always store or send [`UTCDateTime`] instead. `LocalDateTime` is
 /// meant for solving problems "right now, on this machine". Nothing
@@ -604,7 +596,7 @@ impl fmt::Display for LocalDateTime {
             "{:0>4}-{:0>2}-{:0>2}T{:0>2}:{:0>2}:{:0>2}",
             self.year, self.month, self.day, self.hour, self.minute, self.second
         )?;
-        if let Ok(local_offset) = local_offset_as_string() {
+        if let Ok(local_offset) = local_offset_as_string(self) {
             write!(f, "{local_offset}")?;
         }
         Ok(())
@@ -686,28 +678,28 @@ mod tests {
 
     #[test]
     fn timestamp_to_utcdatetime_regular() {
-        let dt = timestamp_to_utcdatetime(1_714_501_302).unwrap();
+        let dt = unix_timestamp_to_utcdatetime(1_714_501_302).unwrap();
 
         assert_eq!(dt, UTCDateTime::from_ymdhms(2024, 4, 30, 18, 21, 42));
     }
 
     #[test]
     fn timestamp_to_utcdatetime_zero() {
-        let dt = timestamp_to_utcdatetime(0).unwrap();
+        let dt = unix_timestamp_to_utcdatetime(0).unwrap();
 
         assert_eq!(dt, UTCDateTime::from_ymdhms(1970, 1, 1, 0, 0, 0));
     }
 
     #[test]
     fn timestamp_to_utcdatetime_negative() {
-        let dt = timestamp_to_utcdatetime(-922_060_800).unwrap();
+        let dt = unix_timestamp_to_utcdatetime(-922_060_800).unwrap();
 
         assert_eq!(dt, UTCDateTime::from_ymdhms(1940, 10, 13, 0, 0, 0));
     }
 
     #[test]
     fn timestamp_to_utcdatetime_bad_timestamp() {
-        let dt = timestamp_to_utcdatetime(i64::MAX);
+        let dt = unix_timestamp_to_utcdatetime(i64::MAX);
 
         assert!(dt.is_err());
     }
@@ -736,6 +728,13 @@ mod tests {
     #[test]
     fn iso_datetime_string_to_utcdatetime_from_datetime_offset() {
         let dt = iso_datetime_string_to_utcdatetime("1964-12-20T05:35:00+01:00").unwrap();
+
+        assert_eq!(dt, UTCDateTime::from_ymdhms(1964, 12, 20, 4, 35, 0));
+    }
+
+    #[test]
+    fn iso_datetime_string_to_utcdatetime_from_datetime_negative_offset() {
+        let dt = iso_datetime_string_to_utcdatetime("1964-12-19T23:35:00-05:00").unwrap();
 
         assert_eq!(dt, UTCDateTime::from_ymdhms(1964, 12, 20, 4, 35, 0));
     }
@@ -801,46 +800,36 @@ mod tests {
     }
 
     #[test]
-    fn utcdatetime_to_offsetdatetime_regular() {
-        let odt =
-            utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymdhms(1938, 7, 15, 0, 0, 0)).unwrap();
+    fn utcdatetime_to_datetime_regular() {
+        let dt = utcdatetime_to_datetime(&UTCDateTime::from_ymdhms(1938, 7, 15, 0, 0, 0)).unwrap();
 
-        assert_eq!(
-            odt,
-            time::OffsetDateTime::new_utc(
-                time::Date::from_calendar_date(1938, time::Month::July, 15).unwrap(),
-                time::Time::from_hms(0, 0, 0).unwrap()
-            )
-        );
+        assert_eq!(dt, Date::new(1938, 7, 15).unwrap().at(0, 0, 0, 0));
     }
 
     #[test]
-    fn utcdatetime_to_offsetdatetime_bad_month() {
-        let odt = utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymdhms(1938, 9999, 15, 0, 0, 0));
+    fn utcdatetime_to_datetime_bad_month() {
+        let dt = utcdatetime_to_datetime(&UTCDateTime::from_ymdhms(1938, 9999, 15, 0, 0, 0));
 
-        assert!(odt.is_err());
+        assert!(dt.is_err());
     }
 
     #[test]
-    fn utcdatetime_to_offsetdatetime_bad_date() {
-        let odt = utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymdhms(1938, 7, 255, 0, 0, 0));
+    fn utcdatetime_to_datetime_bad_date() {
+        let dt = utcdatetime_to_datetime(&UTCDateTime::from_ymdhms(1938, 7, 255, 0, 0, 0));
 
-        assert!(odt.is_err());
+        assert!(dt.is_err());
     }
 
     #[test]
-    fn utcdatetime_to_offsetdatetime_bad_time() {
-        let odt = utcdatetime_to_offsetdatetime(&UTCDateTime::from_ymdhms(1938, 7, 15, 255, 0, 0));
+    fn utcdatetime_to_datetime_bad_time() {
+        let dt = utcdatetime_to_datetime(&UTCDateTime::from_ymdhms(1938, 7, 15, 255, 0, 0));
 
-        assert!(odt.is_err());
+        assert!(dt.is_err());
     }
 
     #[test]
-    fn offsetdatetime_to_utcdatetime_regular() {
-        let dt = offsetdatetime_to_utcdatetime(&time::OffsetDateTime::new_utc(
-            time::Date::from_calendar_date(1938, time::Month::July, 15).unwrap(),
-            time::Time::from_hms(0, 0, 0).unwrap(),
-        ));
+    fn datetime_to_utcdatetime_regular() {
+        let dt = datetime_to_utcdatetime(&Date::new(1938, 7, 15).unwrap().at(0, 0, 0, 0));
 
         assert_eq!(dt, UTCDateTime::from_ymdhms(1938, 7, 15, 0, 0, 0));
     }
@@ -862,10 +851,7 @@ mod tests {
         let c = "1968-02-27T09:10:00Z".parse::<UTCDateTime>().unwrap();
         let d = UTCDateTime::from_iso_string("1968-02-27T09:10:00Z").unwrap();
         let e = UTCDateTime::try_from("1968-02-27T09:10:00Z").unwrap();
-        let f = UTCDateTime::from(time::OffsetDateTime::new_utc(
-            time::Date::from_calendar_date(1968, time::Month::February, 27).unwrap(),
-            time::Time::from_hms(9, 10, 0).unwrap(),
-        ));
+        let f = UTCDateTime::from(Timestamp::from_second(-58_200_600).unwrap());
         let g = UTCDateTime::from_timestamp(-58_200_600).unwrap();
         let h = UTCDateTime::from_julian_date(2_439_913.881_944_444_5);
 
@@ -1010,17 +996,11 @@ mod tests {
     }
 
     #[test]
-    fn utcdatetime_to_offsetdatetime_() {
-        let odt = time::OffsetDateTime::try_from(&UTCDateTime::from_ymdhms(1938, 7, 15, 0, 0, 0))
-            .unwrap();
+    fn utcdatetime_to_timestamp_() {
+        let timestamp =
+            Timestamp::try_from(&UTCDateTime::from_ymdhms(1938, 7, 15, 0, 0, 0)).unwrap();
 
-        assert_eq!(
-            odt,
-            time::OffsetDateTime::new_utc(
-                time::Date::from_calendar_date(1938, time::Month::July, 15).unwrap(),
-                time::Time::from_hms(0, 0, 0).unwrap()
-            )
-        );
+        assert_eq!(timestamp, "1938-07-15T00:00:00Z".parse().unwrap());
     }
 
     #[test]
@@ -1055,6 +1035,12 @@ mod tests {
             second: 0,
         };
 
-        assert_eq!(dt.to_string(), "1968-02-27T09:10:00");
+        let datetime = dt.to_string();
+        let without_offset = "1968-02-27T09:10:00";
+
+        assert!(datetime.starts_with(without_offset));
+        assert!(
+            datetime.len() == without_offset.len() || datetime.len() == without_offset.len() + 9
+        );
     }
 }

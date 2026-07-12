@@ -1688,14 +1688,16 @@ mod tests {
     fn moonphase_display() {
         let mphase = moonphase(&UTCDateTime::from_ymdhms(1995, 3, 11, 1, 40, 0));
 
-        // The testing environment is considered "unsound" by time-rs,
-        // which then errors on anything local-time related. This is why
-        // "Local time" does not appear in the output. This is exactly
-        // what we want by the way. Otherwise, we would have to redact
-        // the local time, as it varies according to the machine's
-        // timezone. See: `time::util::local_offset::Soundness`.
+        // Local time varies according to the machine's timezone, so
+        // remove it before comparing the rest of the output.
+        let output = mphase
+            .to_string()
+            .lines()
+            .filter(|line| !line.starts_with("Local time:"))
+            .collect::<Vec<_>>()
+            .join("\n");
         assert_eq!(
-            mphase.to_string(),
+            output,
             "\
 Phase
 =====

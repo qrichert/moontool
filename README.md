@@ -2,7 +2,6 @@
 
 [![license: 0BSD](https://img.shields.io/badge/license-0BSD-blue)](https://opensource.org/license/0BSD)
 ![GitHub Tag](https://img.shields.io/github/v/tag/qrichert/moontool?sort=semver&filter=*.*.*&label=release)
-[![tokei (loc)](https://tokei.rs/b1/github/qrichert/moontool?label=loc&type=C&style=flat)](https://github.com/XAMPPRocky/tokei)
 [![crates.io](https://img.shields.io/crates/d/moontool?logo=rust&logoColor=white&color=orange)](https://crates.io/crates/moontool)
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/qrichert/moontool/ci-rust.yml?label=tests%20%28rust%29)](https://github.com/qrichert/moontool/actions)
 

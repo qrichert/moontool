@@ -51,25 +51,21 @@ jobs:
         with:
           tool: cargo-tarpaulin
 
-      - name: Set up Python
-        if: matrix.target == 'lint'
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.12
-
-      - name: Cache pre-commits
+      - name: Cache prek
         if: matrix.target == 'lint'
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pre-commit/
+          path: ~/.cache/prek/
           key:
-            ${{ runner.os }}-pre-commit-${{ hashFiles('**/.pre-commit-config.yaml') }}
+            ${{ runner.os }}-prek-${{ hashFiles('**/.pre-commit-config.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pre-commit-
+            ${{ runner.os }}-prek-
 
-      - name: Install pre-commit
+      - name: Install prek
         if: matrix.target == 'lint'
-        run: python -m pip install --upgrade pre-commit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: prek
 
       - name: Run Justfile target
         run: just ${{ matrix.target }}

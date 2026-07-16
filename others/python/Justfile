@@ -20,10 +20,10 @@ run:
 
 # Most stringent checks (includes checks still in development)
 check:
-    pre-commit run ruff --all-files
-    pre-commit run ruff-format --all-files
-    pre-commit run docformatter --all-files
-    pre-commit run pyright --all-files
+    prek run ruff --all-files
+    prek run ruff-format --all-files
+    prek run docformatter --all-files
+    prek run pyright --all-files
     just test
 
 alias t := test

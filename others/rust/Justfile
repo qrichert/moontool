@@ -20,7 +20,7 @@ build:
 alias l := lint
 # Run various linting tools
 lint:
-    pre-commit run --all-files
+    prek run --all-files
 
 # Most stringent checks (includes checks still in development)
 check:

@@ -25,6 +25,9 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Just
+        uses: taiki-e/install-action@just
+
       - name: Cache cargo and target
         uses: actions/cache@v4
         with:
@@ -38,12 +41,12 @@ jobs:
             ${{ runner.os }}-
 
       - name: Build release binary
-        run: make build
+        run: just build
 
       - name: Prepare artifact
         run: |
           mkdir -p dist/
-          bin=$(make ci-bin-name)
+          bin=$(just ci-bin-name)
           platform=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
           cp "target/release/$bin" "dist/${bin}-${{ github.ref_name }}-${platform}"
         shell: bash

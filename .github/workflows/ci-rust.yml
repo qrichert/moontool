@@ -28,6 +28,9 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Just
+        uses: taiki-e/install-action@just
+
       - name: Cache cargo registry and build
         if: matrix.target != 'coverage-pct'
         uses: actions/cache@v4
@@ -68,5 +71,5 @@ jobs:
         if: matrix.target == 'lint'
         run: python -m pip install --upgrade pre-commit
 
-      - name: Run Makefile target
-        run: make ${{ matrix.target }}
+      - name: Run Justfile target
+        run: just ${{ matrix.target }}

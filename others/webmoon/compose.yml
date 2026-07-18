@@ -3,8 +3,12 @@ name: moontool
 services:
   moontool:
     build:
+      # Include the sibling Rust project built by the Dockerfile.
       context: ..
       dockerfile: webmoon/Dockerfile
     restart: unless-stopped
+    # Uncomment when serving the app under a path prefix.
+    # environment:
+    #   MOONTOOL_ROOT_PATH: /moontool
     ports:
       - "2222:2222"

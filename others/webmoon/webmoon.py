@@ -33,6 +33,7 @@ http://0.0.0.0:2222/docs
 """
 
 import json
+import os
 import subprocess
 from typing import Annotated
 
@@ -73,7 +74,7 @@ HTML_TEMPLATE: str = """
 </html>
 """
 
-app = FastAPI()
+app = FastAPI(root_path=os.getenv("MOONTOOL_ROOT_PATH", ""))
 
 
 def moontool(

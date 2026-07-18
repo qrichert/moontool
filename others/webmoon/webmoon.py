@@ -74,7 +74,11 @@ HTML_TEMPLATE: str = """
 </html>
 """
 
-app = FastAPI(root_path=os.getenv("MOONTOOL_ROOT_PATH", ""))
+app = FastAPI(
+    title="Moontool API",
+    root_path=os.getenv("MOONTOOL_ROOT_PATH", ""),
+    swagger_ui_parameters={"tryItOutEnabled": True},
+)
 
 
 def moontool(

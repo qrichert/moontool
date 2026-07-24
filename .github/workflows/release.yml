@@ -10,8 +10,8 @@ jobs:
     name: CI
     uses: ./.github/workflows/ci.yml
 
-  build:
-    name: Build
+  build-rust:
+    name: Build Rust binary
     needs: ci
     runs-on: ${{ matrix.os }}
     strategy:
@@ -65,9 +65,41 @@ jobs:
           path: ./others/rust/dist/
           if-no-files-found: error
 
+  build-python:
+    name: Build Python package
+    needs: ci
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./others/python
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Set up `uv`
+        uses: astral-sh/setup-uv@v6
+
+      - name: Build Python distribution
+        run: uv build
+
+      - name: Upload Python distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: ./others/python/dist/
+          if-no-files-found: error
+
   release:
     name: Create GitHub Release
-    needs: build
+    needs:
+      - build-rust
+      - build-python
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -92,10 +124,11 @@ jobs:
           echo "$body" >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
-      - name: Download all artifacts
+      - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
+          pattern: ${{ github.event.repository.name }}-*
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v1
@@ -107,3 +140,50 @@ jobs:
             artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-crate:
+    name: Publish crate
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ./others/rust
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Authenticate with crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish crate
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  publish-pypi:
+    name: Publish Python package
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download Python distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package
+          path: dist/
+
+      - name: Publish Python package
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Rust and Python versions are released independently.
+          skip-existing: true

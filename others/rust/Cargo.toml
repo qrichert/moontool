@@ -6,8 +6,8 @@ authors = ["Quentin Richert <noreply@richert.co>"]
 description = "John Walker's moontool.c astronomical calculation routines, extracted and ported to Rust."
 license = "0BSD"
 repository = "https://github.com/qrichert/moontool.git"
-keywords = ["moon"]
-categories = ["aerospace", "mathematics", "science", "command-line-utilities"]
+keywords = ["moon-phase", "lunar", "lunation", "astronomy", "moon-calendar"]
+categories = ["aerospace", "mathematics", "science", "date-and-time", "command-line-utilities"]
 
 [[bin]]
 name = "moontool"

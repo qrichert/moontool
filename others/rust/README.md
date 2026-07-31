@@ -128,22 +128,22 @@ $ moontool --json --verbose 1994-12-22T13:53:34
 
 ## Installation
 
-```shell
-# CLI, either of:
-cargo install moontool
-cargo install --git https://github.com/qrichert/moontool.git
+Install the CLI from [crates.io] with Cargo:
 
-# Library
-cargo add moontool
+```shell
+cargo install moontool --features rich-output
 ```
 
-This sets up both the CLI:
+Pre-built binaries for Linux and macOS are available on the
+[latest GitHub release].
+
+Verify the CLI installation:
 
 ```console
 $ moontool --help
 ```
 
-And the library:
+The crate also exposes a Rust library; see its [documentation].
 
 ```rust
 use moontool::moon::MoonPhase;
@@ -169,3 +169,7 @@ let phase = MoonPhase::now();
 ⠀⠀⠀⠀⠀⠀⠀⠀⠉⠒⠳⠤⠤⠌⠁⠩⠌⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀<br />
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀<br />
 </p>
+
+[crates.io]: https://crates.io/crates/moontool
+[latest GitHub release]: https://github.com/qrichert/moontool/releases/latest
+[documentation]: https://docs.rs/moontool

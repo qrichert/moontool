@@ -134,8 +134,8 @@ Install the CLI from [crates.io] with Cargo:
 cargo install moontool --features rich-output
 ```
 
-Pre-built binaries for Linux and macOS are available on the
-[latest GitHub release].
+Pre-built binaries for Linux and macOS are available on the [latest
+GitHub release].
 
 Verify the CLI installation:
 
@@ -171,5 +171,6 @@ let phase = MoonPhase::now();
 </p>
 
 [crates.io]: https://crates.io/crates/moontool
-[latest GitHub release]: https://github.com/qrichert/moontool/releases/latest
+[latest GitHub release]:
+  https://github.com/qrichert/moontool/releases/latest
 [documentation]: https://docs.rs/moontool

@@ -24,14 +24,14 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)', 'cfg(
 
 [dependencies]
 # (CLI) Render Moon and plot lunation charts.
-textcanvas = { version = "3.8.0", optional = true }
+textcanvas = { version = "3.9.0", optional = true }
 # Manipulate dates and time.
 # - Get current date and time.
 # - Convert from-and-to timestamps.
 # - Parse ISO datetime strings.
 # - Get day-of-week for date.
 # - Convert between local and UTC.
-jiff = "0.2.32"
+jiff = "0.2.35"
 
 [features]
 # (CLI) Activate `textcanvas` dependency for rich output.
